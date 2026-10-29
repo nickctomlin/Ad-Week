@@ -1,0 +1,9 @@
+# Keep secrets, local data, and dev-only files out of the image.
+.env
+data/
+node_modules/
+.git/
+.claude/
+test/
+docs/
+*.tmp.ts

@@ -1,0 +1,89 @@
+# Ad Week sample output — real data fetched 2026-10-29 09:50
+# Settings: 10-mile radius, nearest 2 stores per chain, 2 people, 5 dinners, $60 budget (75034: vegetarian)
+
+Plano 75024 | recipes: Built-in recipe library | total $14.64 vs budget $60 (under by $45.36) | $7.32/person | $1.46/serving
+  - Baked drumsticks with sweet potatoes [chicken] $3.34 ($1.67/serving) on sale: chicken drumsticks, sweet potatoes, green beans
+  - Pork chops with potatoes & green beans [pork] $3.35 ($1.68/serving) on sale: pork chops, potatoes, green beans
+  - Sheet-pan chicken, potatoes & broccoli [chicken] $1.77 ($0.89/serving) on sale: chicken breast, potatoes
+  - Roast pork loin with sweet potatoes [pork] $3.08 ($1.54/serving) on sale: pork loin, sweet potatoes
+  - Loaded baked potatoes [veggie] $3.11 ($1.56/serving) on sale: potatoes, shredded cheese
+ BEST-PRICES LIST:
+   ALDI (2220 Coit Road, Plano, TX, 75075, 3.4mi): chicken drumsticks 1.25 lb — Fresh Family Pack Chicken Drumsticks @ $1.09/lb = $1.36
+   Kroger (7100 Independence Parkway, Plano, TX, 75025, 2.1mi): sweet potatoes 2 lb — Sweet Potatoes @ $0.99/lb = $1.98
+   Kroger (7100 Independence Parkway, Plano, TX, 75025, 2.1mi): green beans 2 pkg — Del Monte Cut Green Beans @ $0.99 = $1.98
+   Tom Thumb (Legacy Drive, Plano, TX, 75025, 0.8mi): pork chops 0.75 lb — Signature SELECT® Fresh Boneless Skinless Chicken Breas @ $2.77/lb = $2.08 (limit 2) [ad says limit 2]
+   Tom Thumb (Legacy Drive, Plano, TX, 75025, 0.8mi): potatoes 1 pkg — Signature SELECT® Russet Potatoes @ $0.97 = $0.97 (limit 3)
+   ALDI (2220 Coit Road, Plano, TX, 75075, 3.4mi): chicken breast 0.75 lb — Fresh Family Size Chicken Breasts @ $1.99/lb = $1.49
+   ALDI (2220 Coit Road, Plano, TX, 75075, 3.4mi): pork loin 1 lb — Fresh Half Pork Loin @ $2.09/lb = $2.09
+   ALDI (2220 Coit Road, Plano, TX, 75075, 3.4mi): shredded cheese 1 pkg — Emporium Selection Aged Reserved White Cheddar @ $2.69 = $2.69
+ ONE-STORE: ALDI 2220 Coit Road, Plano, TX, 75075 total $10.62 missing: sweet potatoes, green beans, potatoes, broccoli, sour cream
+ WARNINGS: [
+  "ANTHROPIC_API_KEY is not set, so recipes come from the built-in library instead of being generated from this week's sales.",
+  'No current price at your selected stores for: broccoli, sour cream. These are on the shopping list without a price and are NOT included in the total.'
+]
+
+Plano 75074 | recipes: Built-in recipe library | total $14.64 vs budget $60 (under by $45.36) | $7.32/person | $1.46/serving
+  - Baked drumsticks with sweet potatoes [chicken] $3.34 ($1.67/serving) on sale: chicken drumsticks, sweet potatoes, green beans
+  - Pork chops with potatoes & green beans [pork] $3.35 ($1.68/serving) on sale: pork chops, potatoes, green beans
+  - Sheet-pan chicken, potatoes & broccoli [chicken] $1.77 ($0.89/serving) on sale: chicken breast, potatoes
+  - Roast pork loin with sweet potatoes [pork] $3.08 ($1.54/serving) on sale: pork loin, sweet potatoes
+  - Loaded baked potatoes [veggie] $3.11 ($1.56/serving) on sale: potatoes, shredded cheese
+ BEST-PRICES LIST:
+   ALDI (2400 K Avenue, Plano, TX, 75074, 1.2mi): chicken drumsticks 1.25 lb — Fresh Family Pack Chicken Drumsticks @ $1.09/lb = $1.36
+   Kroger (4017 14th Street, Plano, TX, 75074, 1.5mi): sweet potatoes 2 lb — Sweet Potatoes @ $0.99/lb = $1.98
+   Kroger (4017 14th Street, Plano, TX, 75074, 1.5mi): green beans 2 pkg — Del Monte Cut Green Beans @ $0.99 = $1.98
+   Tom Thumb (3100 Independence Parkway, Plano, TX, 75075, 4.4mi): pork chops 0.75 lb — Signature SELECT® Fresh Boneless Skinless Chicken Breas @ $2.77/lb = $2.08 (limit 2) [ad says limit 2]
+   Tom Thumb (3100 Independence Parkway, Plano, TX, 75075, 4.4mi): potatoes 1 pkg — Signature SELECT® Russet Potatoes @ $0.97 = $0.97 (limit 3)
+   ALDI (2400 K Avenue, Plano, TX, 75074, 1.2mi): chicken breast 0.75 lb — Fresh Family Size Chicken Breasts @ $1.99/lb = $1.49
+   ALDI (2400 K Avenue, Plano, TX, 75074, 1.2mi): pork loin 1 lb — Fresh Half Pork Loin @ $2.09/lb = $2.09
+   ALDI (2400 K Avenue, Plano, TX, 75074, 1.2mi): shredded cheese 1 pkg — Emporium Selection Aged Reserved White Cheddar @ $2.69 = $2.69
+ ONE-STORE: ALDI 2400 K Avenue, Plano, TX, 75074 total $10.62 missing: sweet potatoes, green beans, potatoes, broccoli, sour cream
+ WARNINGS: [
+  "ANTHROPIC_API_KEY is not set, so recipes come from the built-in library instead of being generated from this week's sales.",
+  'No current price at your selected stores for: broccoli, sour cream. These are on the shopping list without a price and are NOT included in the total.'
+]
+
+Plano 75075 | recipes: Built-in recipe library | total $14.64 vs budget $60 (under by $45.36) | $7.32/person | $1.46/serving
+  - Baked drumsticks with sweet potatoes [chicken] $3.34 ($1.67/serving) on sale: chicken drumsticks, sweet potatoes, green beans
+  - Pork chops with potatoes & green beans [pork] $3.35 ($1.68/serving) on sale: pork chops, potatoes, green beans
+  - Sheet-pan chicken, potatoes & broccoli [chicken] $1.77 ($0.89/serving) on sale: chicken breast, potatoes
+  - Roast pork loin with sweet potatoes [pork] $3.08 ($1.54/serving) on sale: pork loin, sweet potatoes
+  - Loaded baked potatoes [veggie] $3.11 ($1.56/serving) on sale: potatoes, shredded cheese
+ BEST-PRICES LIST:
+   ALDI (2220 Coit Road, Plano, TX, 75075, 1.7mi): chicken drumsticks 1.25 lb — Fresh Family Pack Chicken Drumsticks @ $1.09/lb = $1.36
+   Kroger (2925 Custer Road, Plano, TX, 75075, 1mi): sweet potatoes 2 lb — Sweet Potatoes @ $0.99/lb = $1.98
+   Kroger (2925 Custer Road, Plano, TX, 75075, 1mi): green beans 2 pkg — Del Monte Cut Green Beans @ $0.99 = $1.98
+   Tom Thumb (3100 Independence Parkway, Plano, TX, 75075, 1.2mi): pork chops 0.75 lb — Signature SELECT® Fresh Boneless Skinless Chicken Breas @ $2.77/lb = $2.08 (limit 2) [ad says limit 2]
+   Tom Thumb (3100 Independence Parkway, Plano, TX, 75075, 1.2mi): potatoes 1 pkg — Signature SELECT® Russet Potatoes @ $0.97 = $0.97 (limit 3)
+   ALDI (2220 Coit Road, Plano, TX, 75075, 1.7mi): chicken breast 0.75 lb — Fresh Family Size Chicken Breasts @ $1.99/lb = $1.49
+   ALDI (2220 Coit Road, Plano, TX, 75075, 1.7mi): pork loin 1 lb — Fresh Half Pork Loin @ $2.09/lb = $2.09
+   ALDI (2220 Coit Road, Plano, TX, 75075, 1.7mi): shredded cheese 1 pkg — Emporium Selection Aged Reserved White Cheddar @ $2.69 = $2.69
+ ONE-STORE: ALDI 2220 Coit Road, Plano, TX, 75075 total $10.62 missing: sweet potatoes, green beans, potatoes, broccoli, sour cream
+ WARNINGS: [
+  "ANTHROPIC_API_KEY is not set, so recipes come from the built-in library instead of being generated from this week's sales.",
+  'No current price at your selected stores for: broccoli, sour cream. These are on the shopping list without a price and are NOT included in the total.'
+]
+
+Frisco 75034 | recipes: Built-in recipe library | total $22.22 vs budget $60 (under by $37.78) | $11.11/person | $2.22/serving
+  - Black bean tacos with avocado [beans] $6.04 ($3.02/serving) on sale: canned beans, tortillas, avocados, shredded cheese, salsa
+  - Bean & pepper quesadillas [beans] $3.79 ($1.9/serving) on sale: tortillas, shredded cheese, bell peppers, canned beans
+  - Shakshuka [eggs] $4.38 ($2.19/serving) on sale: eggs, bell peppers, bread
+  - Pasta primavera [veggie] $5.7 ($2.85/serving) on sale: pasta, bell peppers, tomatoes, shredded cheese
+  - Loaded baked potatoes [veggie] $2.32 ($1.16/serving) on sale: potatoes, shredded cheese
+ BEST-PRICES LIST:
+   Tom Thumb (4848 Preston Road, Frisco, TX, 75034, 2.4mi): canned beans 2 pkg — Signature SELECT® Garbanzo Beans @ $0.99 = $1.98
+   Tom Thumb (4848 Preston Road, Frisco, TX, 75034, 2.4mi): tortillas 1 pkg — De Harina Tortillas @ $1.99 = $1.99
+   ALDI (6951 Preston Road, Frisco, TX, 75034, 1.4mi): avocados 1 pkg — Avocados @ $0.39 = $0.39
+   ALDI (6951 Preston Road, Frisco, TX, 75034, 1.4mi): shredded cheese 2 pkg — Emporium Selection Aged Reserved White Cheddar @ $2.69 = $5.38
+   Kroger (Ridgeview Drive, Plano, TX, 75025, 4.2mi): salsa 1 pkg — Pace Salsa or Picante Sauce @ $1.99 = $1.99
+   Tom Thumb (4848 Preston Road, Frisco, TX, 75034, 2.4mi): bell peppers 2 pkg — Cucumbers or Green Bell Peppers @ $0.79 = $1.58
+   Tom Thumb (4848 Preston Road, Frisco, TX, 75034, 2.4mi): eggs 1 pkg — Simply Lemonade or Punch 52 oz., Blue Diamond Almond Br @ $1.99 = $1.99
+   Kroger (Ridgeview Drive, Plano, TX, 75025, 4.2mi): bread 1 pkg — Kroger Buns @ $1.99 = $1.99
+   Tom Thumb (4848 Preston Road, Frisco, TX, 75034, 2.4mi): pasta 1 pkg — Progresso Soup 18-19 oz., Barilla Pasta 12-16 oz., or P @ $0.97 = $0.97 (limit 6)
+   Kroger (Ridgeview Drive, Plano, TX, 75025, 4.2mi): tomatoes 1 pkg — Private Selection Snacking Tomatoes @ $2.99 = $2.99
+   Tom Thumb (4848 Preston Road, Frisco, TX, 75034, 2.4mi): potatoes 1 pkg — Signature SELECT® Russet Potatoes @ $0.97 = $0.97 (limit 3)
+ ONE-STORE: Tom Thumb 4848 Preston Road, Frisco, TX, 75034 total $18.96 missing: avocados, shredded cheese, onions, canned tomatoes, zucchini, tomatoes, broccoli, sour cream
+ WARNINGS: [
+  "ANTHROPIC_API_KEY is not set, so recipes come from the built-in library instead of being generated from this week's sales.",
+  'No current price at your selected stores for: onions, canned tomatoes, zucchini, broccoli, sour cream. These are on the shopping list without a price and are NOT included in the total.'
+]

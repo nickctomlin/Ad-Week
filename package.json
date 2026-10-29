@@ -1,0 +1,24 @@
+{
+  "name": "ad-week",
+  "version": "0.1.0",
+  "description": "Cheap weekly dinner plans from real DFW grocery sale data",
+  "scripts": {
+    "start": "node src/server.ts",
+    "ingest": "node src/ingest.ts",
+    "test": "node --test test/",
+    "typecheck": "tsc"
+  },
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "zod": "^4.6.7"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

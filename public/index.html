@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ad Week</title>
+  <meta name="description" content="Cheap weekly dinner plans from this week's real DFW grocery sales." />
+  <meta name="theme-color" content="#1f7a4d" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%231f7a4d'/><text x='50' y='68' font-size='56' text-anchor='middle' fill='white' font-family='system-ui' font-weight='800'>A</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- App bar -->
+  <header class="appbar">
+    <a class="brand" href="#setup" aria-label="Ad Week home">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span class="brand-text"><b>Ad Week</b><small>Real sales · DFW</small></span>
+    </a>
+    <button id="loc-chip" class="loc-chip hidden" type="button" title="Change location or stores"></button>
+    <nav class="topnav" aria-label="Sections"></nav>
+    <button id="theme" class="icon-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
+  </header>
+
+  <main id="app">
+    <!-- SETUP -->
+    <section class="view" data-view="setup" aria-labelledby="h-setup">
+      <div class="view-head">
+        <h1 id="h-setup">Plan this week's dinners</h1>
+        <p class="lede">Pulls this week's real weekly-ad prices from stores near you and builds the cheapest plan that fits your budget.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span class="num">1</span><h2>Location</h2></div>
+        <form id="loc-form" class="loc-form">
+          <label class="field zip-field">
+            <span>ZIP code</span>
+            <input id="zip" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="75024" required autocomplete="postal-code" />
+          </label>
+          <div class="field">
+            <span>Radius</span>
+            <div class="seg" id="radius" role="radiogroup" aria-label="Search radius">
+              <button type="button" role="radio" data-r="5">5 mi</button>
+              <button type="button" role="radio" data-r="10">10 mi</button>
+              <button type="button" role="radio" data-r="15">15 mi</button>
+              <button type="button" role="radio" data-r="25">25 mi</button>
+            </div>
+          </div>
+          <button class="btn primary" type="submit" id="find-btn">Find stores</button>
+        </form>
+        <p id="loc-msg" class="msg" role="status"></p>
+      </div>
+
+      <div class="panel hidden" id="stores-panel">
+        <div class="panel-title">
+          <span class="num">2</span><h2>Stores</h2>
+          <span class="spacer"></span>
+          <span class="muted small" id="sel-count"></span>
+          <button id="refresh" class="btn ghost sm" type="button" title="Re-pull this week's ads">↻ Refresh deals</button>
+        </div>
+        <div id="job" class="job hidden" role="status"></div>
+        <div id="chains" class="chains"></div>
+        <a class="btn primary lg full hidden" id="browse-cta" href="#deals" style="margin-top:14px">Browse this week's deals →</a>
+      </div>
+
+      <div class="panel hidden" id="budget-panel">
+        <div class="panel-title"><span class="num">3</span><h2>Budget &amp; household</h2></div>
+        <form id="plan-form" class="budget-form">
+          <label class="field budget-field">
+            <span>Weekly dinner budget</span>
+            <div class="money-input"><span>$</span><input id="budget" type="number" min="1" step="1" value="60" required /></div>
+          </label>
+          <div class="field">
+            <span>People</span>
+            <div class="stepper" data-for="people"><button type="button" data-d="-1" aria-label="Fewer people">−</button><input id="people" type="number" min="1" max="12" value="2" required /><button type="button" data-d="1" aria-label="More people">+</button></div>
+          </div>
+          <div class="field">
+            <span>Dinners</span>
+            <div class="stepper" data-for="dinners"><button type="button" data-d="-1" aria-label="Fewer dinners">−</button><input id="dinners" type="number" min="1" max="7" value="5" required /><button type="button" data-d="1" aria-label="More dinners">+</button></div>
+          </div>
+          <div class="field">
+            <span>Diet</span>
+            <div class="seg" id="diet" role="radiogroup" aria-label="Diet">
+              <button type="button" role="radio" data-v="anything">Anything</button>
+              <button type="button" role="radio" data-v="vegetarian">Vegetarian</button>
+            </div>
+          </div>
+          <div class="field full">
+            <span>Plan style</span>
+            <div class="seg" id="mode" role="radiogroup" aria-label="Plan style">
+              <button type="button" role="radio" data-v="prep">Meal prep · one batch</button>
+              <button type="button" role="radio" data-v="variety">Variety · new each night</button>
+            </div>
+            <small class="muted small" id="mode-hint"></small>
+          </div>
+          <button class="btn primary lg full" type="submit" id="plan-btn">Build my plan →</button>
+        </form>
+        <p id="plan-msg" class="msg" role="status"></p>
+      </div>
+    </section>
+
+    <!-- PLAN -->
+    <section class="view hidden" data-view="plan" aria-labelledby="h-plan"><div id="plan-view"></div></section>
+    <!-- LIST -->
+    <section class="view hidden" data-view="list" aria-labelledby="h-list"><div id="list-view"></div></section>
+    <!-- DEALS -->
+    <section class="view hidden" data-view="deals" aria-labelledby="h-deals"><div id="deals-view"></div></section>
+    <!-- FLYERS -->
+    <section class="view hidden" data-view="flyers" aria-labelledby="h-flyers"><div id="flyers-view"></div></section>
+
+    <footer class="foot">
+      Prices come from each chain's current weekly ad (via Flipp) and, when configured, the official Kroger API.
+      Tap any item to see the original ad and verify the price. Personal proof of concept.
+    </footer>
+  </main>
+
+  <nav class="tabbar" aria-label="Sections"></nav>
+
+  <dialog id="sheet" class="sheet" aria-labelledby="sheet-title">
+    <div class="sheet-inner" id="sheet-body"></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
