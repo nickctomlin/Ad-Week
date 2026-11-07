@@ -2,7 +2,7 @@
 // retailers' own weekly-ad pages display). Unofficial: no SLA, may change without notice.
 // One request lists flyers for a ZIP, one per flyer lists its items, and one per *matched*
 // grocery item fetches details (unit text, regular price, purchase limit). Everything is cached.
-import { fetchJson, DAY, HOUR } from '../http.ts';
+import { fetchJson, mapPool, DAY, HOUR } from '../http.ts';
 import { matchAdName, parsePrice, parseLimit, round2 } from '../normalize.ts';
 import { buildDeal, buildGenericDeal, type DealBase } from './deal.ts';
 import { classifyDept, deptForCanonical } from '../departments.ts';
@@ -97,22 +97,22 @@ export async function fetchFlyerDeals(zip: string, flyer: FlyerMeta, onProgress?
   const candidates = items.filter((it) => it.name && (matchAdName(it.name).length || classifyDept(it.name)));
   onProgress?.(`${flyer.merchant} "${flyer.name}": ${items.length} items, ${candidates.length} grocery items`);
 
-  const deals: Deal[] = [];
   let done = 0;
-  for (const it of candidates) {
+  // Fetch item details several at a time; the per-host limiter in http.ts keeps the overall rate polite.
+  const perItem = await mapPool(candidates, 4, async (it): Promise<Deal[]> => {
     if (++done % 40 === 0) onProgress?.(`${flyer.merchant}: read ${done} of ${candidates.length} grocery items`);
     let d: any;
     try {
       // Item details are immutable for the life of the flyer; cache by item id.
       d = (await fetchJson(`${BASE}/items/${it.id}`, { ttlMs: Math.max(ttl, 7 * DAY) })).item;
     } catch {
-      continue; // one bad item shouldn't sink the flyer
+      return []; // one bad item shouldn't sink the flyer
     }
-    if (!d) continue;
+    if (!d) return [];
     const name: string = d.name || it.name;
     const price = parsePrice({ current_price: d.current_price ?? it.price, pre_price_text: d.pre_price_text, price_text: d.price_text, sale_story: d.sale_story });
     const promo = price ? null : promoText(d);
-    if (!price && !promo) continue; // section headers and promo tiles carry neither
+    if (!price && !promo) return []; // section headers and promo tiles carry neither
     const regular = price && d.original_price != null && Number(d.original_price) > price.price ? round2(Number(d.original_price) / (price.multiBuy || 1)) : null;
     const base: DealBase = {
       id: `flipp:${zip}:${it.id}`,
@@ -141,14 +141,12 @@ export async function fetchFlyerDeals(zip: string, flyer: FlyerMeta, onProgress?
     const dinner = matched
       .map(({ part, canonical }) => buildDeal({ ...base, id: `${base.id}:${canonical.key}`, sale_price: price!.price }, canonical, part + ' ' + (d.description || '')))
       .filter((x): x is Deal => !!x);
-    if (dinner.length) deals.push(...dinner);
-    else {
-      // Display-only: not a dinner ingredient, or one advertised without a single price (e.g. BOGO).
-      const can = matchAdName(name)[0]?.canonical;
-      const sorted = classifyDept(name);
-      const dept = sorted === 'other' && can ? deptForCanonical(can.key, can.category) : sorted;
-      if (dept) deals.push(buildGenericDeal(base, dept, name + ' ' + (d.description || '')));
-    }
-  }
-  return deals;
+    if (dinner.length) return dinner;
+    // Display-only: not a dinner ingredient, or one advertised without a single price (e.g. BOGO).
+    const can = matchAdName(name)[0]?.canonical;
+    const sorted = classifyDept(name);
+    const dept = sorted === 'other' && can ? deptForCanonical(can.key, can.category) : sorted;
+    return dept ? [buildGenericDeal(base, dept, name + ' ' + (d.description || ''))] : [];
+  });
+  return perItem.flat();
 }

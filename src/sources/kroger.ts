@@ -2,16 +2,23 @@
 // OAuth2 client credentials -> /v1/locations (stores near a ZIP) and
 // /v1/products?filter.locationId= (store-level regular + promo prices).
 import { config } from '../config.ts';
-import { fetchJson, HttpError, DAY, HOUR } from '../http.ts';
+import { fetchJson, mapPool, HttpError, DAY, HOUR } from '../http.ts';
 import { CANONICALS, matchCanonical, parseLimit, round2 } from '../normalize.ts';
 import { buildDeal } from './deal.ts';
 import type { Deal, Store } from './types.ts';
 
 const API = 'https://api.kroger.com/v1';
 let token: { value: string; expires: number } | undefined;
+let tokenRequest: Promise<string> | undefined;
 
-async function getToken(): Promise<string> {
-  if (token && token.expires > Date.now() + 60_000) return token.value;
+/** Access token, shared by all concurrent requests (only one token request in flight at a time). */
+function getToken(): Promise<string> {
+  if (token && token.expires > Date.now() + 60_000) return Promise.resolve(token.value);
+  tokenRequest ??= requestToken().finally(() => { tokenRequest = undefined; });
+  return tokenRequest;
+}
+
+async function requestToken(): Promise<string> {
   const basic = Buffer.from(`${config.krogerClientId}:${config.krogerClientSecret}`).toString('base64');
   try {
     const j = await fetchJson(`${API}/connect/oauth2/token`, {
@@ -62,7 +69,8 @@ export async function fetchKrogerPrices(store: Store, onProgress?: (msg: string)
   const locationId = store.id.replace(/^kroger:/, '');
   const out: Deal[] = [];
   let done = 0;
-  for (const can of CANONICALS) {
+  // Price several ingredients at once; the per-host limiter in http.ts caps the request rate.
+  await mapPool(CANONICALS, 6, async (can) => {
     const term = encodeURIComponent(can.search);
     const j = await kget(`/products?filter.term=${term}&filter.locationId=${locationId}&filter.limit=25`, 12 * HOUR, opts.fresh);
     for (const p of j.data || []) {
@@ -106,6 +114,6 @@ export async function fetchKrogerPrices(store: Store, onProgress?: (msg: string)
       }
     }
     if (++done % 10 === 0) onProgress?.(`${store.name}: priced ${done}/${CANONICALS.length} ingredients`);
-  }
+  });
   return out;
 }

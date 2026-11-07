@@ -70,42 +70,47 @@ export async function ingestZip(zip: string, opts: { force?: boolean } = {}, log
   const place = await geocodeZip(zip);
   log(`${zip}: ${place.city}, ${place.state}`);
 
-  // 1) Weekly-ad flyers (all chains) for this ZIP.
-  let flyers: Awaited<ReturnType<typeof listFlyers>> = [];
-  let listed = false;
+  // Weekly-ad flyers and Kroger shelf prices come from different hosts, so they run at the same time,
+  // and within each, every chain / store runs in parallel. Each chain's deals are saved (and become
+  // visible in the app) as soon as that chain finishes. http.ts caps the request rate per host.
+  await Promise.all([ingestFlyers(zip, opts, log), ingestKroger(place, opts, log)]);
+}
+
+async function ingestFlyers(zip: string, opts: { force?: boolean }, log: (m: string) => void) {
+  let flyers: Awaited<ReturnType<typeof listFlyers>>;
   try {
     flyers = await listFlyers(zip, { fresh: opts.force });
-    listed = true;
     log(`Found ${flyers.length} current grocery flyers: ${flyers.map((f) => `${f.merchant} (${f.name})`).join(', ') || 'none'}`);
   } catch (e: any) {
     for (const c of CHAINS) { const id = startRun('flipp', c.id, zip, zip); endRun(id, 'error', `Flyer service unavailable: ${e.message}`); }
     log(`Flyer listing failed: ${e.message}`);
+    return;
   }
-  if (listed) {
-    for (const chain of CHAINS) {
-      const mine = flyers.filter((f) => f.chain === chain.id);
-      const runId = startRun('flipp', chain.id, zip, zip);
-      if (!mine.length) { endRun(runId, 'empty', `No current ${chain.name} weekly ad was found for ZIP ${zip}.`); continue; }
-      try {
-        const deals: Deal[] = [];
-        for (const f of mine) deals.push(...(await fetchFlyerDeals(zip, f, log)));
-        // Replace this chain's previous flyer deals for the zone atomically.
-        db.exec('BEGIN');
-        db.prepare("DELETE FROM deals WHERE source = 'flipp' AND zone = ? AND chain = ?").run(zip, chain.id);
-        saveDeals(deals);
-        db.exec('COMMIT');
-        const validTo = mine.map((f) => f.valid_to).sort()[0];
-        endRun(runId, deals.length ? 'ok' : 'empty', deals.length ? `${mine.length} flyer(s)` : 'Flyer had no matching grocery items.', deals.length, validTo);
-        log(`${chain.name}: saved ${deals.length} normalized deals`);
-      } catch (e: any) {
-        try { db.exec('ROLLBACK'); } catch {}
-        endRun(runId, 'error', e.message);
-        log(`${chain.name}: flyer ingest failed: ${e.message}`);
-      }
+  await Promise.all(CHAINS.map(async (chain) => {
+    const mine = flyers.filter((f) => f.chain === chain.id);
+    const runId = startRun('flipp', chain.id, zip, zip);
+    if (!mine.length) { endRun(runId, 'empty', `No current ${chain.name} weekly ad was found for ZIP ${zip}.`); return; }
+    try {
+      const deals = (await Promise.all(mine.map((f) => fetchFlyerDeals(zip, f, log)))).flat();
+      // Replace this chain's previous flyer deals for the zone atomically (synchronous, so parallel
+      // chains can't interleave inside the transaction).
+      db.exec('BEGIN');
+      db.prepare("DELETE FROM deals WHERE source = 'flipp' AND zone = ? AND chain = ?").run(zip, chain.id);
+      saveDeals(deals);
+      db.exec('COMMIT');
+      const validTo = mine.map((f) => f.valid_to).sort()[0];
+      endRun(runId, deals.length ? 'ok' : 'empty', deals.length ? `${mine.length} flyer(s)` : 'Flyer had no matching grocery items.', deals.length, validTo);
+      log(`${chain.name}: saved ${deals.length} normalized deals`);
+    } catch (e: any) {
+      try { db.exec('ROLLBACK'); } catch {}
+      endRun(runId, 'error', e.message);
+      log(`${chain.name}: flyer ingest failed: ${e.message}`);
     }
-  }
+  }));
+}
 
-  // 2) Kroger store-level prices (official API) for the nearest Kroger stores.
+async function ingestKroger(place: Awaited<ReturnType<typeof geocodeZip>>, opts: { force?: boolean }, log: (m: string) => void) {
+  const zip = place.zip;
   if (!hasKroger()) {
     const id = startRun('kroger-api', 'kroger', zip, zip);
     endRun(id, 'skipped', 'Kroger API keys not configured (KROGER_CLIENT_ID / KROGER_CLIENT_SECRET). Using Kroger weekly-ad flyer only.');
@@ -113,7 +118,7 @@ export async function ingestZip(zip: string, opts: { force?: boolean } = {}, log
   }
   const { stores } = await findStores(place, 25);
   const krogers = stores.filter((s) => s.chain === 'kroger' && s.source === 'kroger-api').slice(0, config.krogerMaxStores);
-  for (const s of krogers) {
+  await Promise.all(krogers.map(async (s) => {
     const runId = startRun('kroger-api', 'kroger', s.id, zip);
     try {
       const deals = await fetchKrogerPrices(s, log, { fresh: opts.force });
@@ -128,7 +133,7 @@ export async function ingestZip(zip: string, opts: { force?: boolean } = {}, log
       endRun(runId, 'error', e.message);
       log(`Kroger API ${s.name}: ${e.message}`);
     }
-  }
+  }));
 }
 
 export function trackZip(zip: string) {

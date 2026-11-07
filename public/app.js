@@ -76,7 +76,7 @@ const state = {
   zip: '', radius: Number(saved.radius) || 10, diet: saved.diet || 'anything', mode: saved.mode || 'prep',
   place: null, stores: [], chains: [], selected: new Set(), expanded: {}, job: null, pollTimer: null,
   plan: null, rejected: [], listMode: 'best',
-  deals: [], dealsKey: '', dealsLoading: false, dealQ: '', dealChain: '', dealCat: '', dealSort: 'best',
+  deals: [], dealsKey: '', dealsLoading: false, dealQ: '', dealChains: ls.get('adweek:dealStores', []), dealCat: '', dealSort: 'best', dealLimit: 60,
   flyers: null, flyersZip: '', flyerChain: '', flyer: null, flyerQ: '', groceryOnly: false,
 };
 
@@ -121,7 +121,18 @@ function route() {
   renderNav();
   if (view === 'plan') renderPlan();
   if (view === 'list') renderList();
-  if (view === 'deals') { renderDeals(); loadDeals(); }
+  if (view === 'deals') {
+    state.dealCat = params.get('aisle') || '';
+    renderDeals();
+    loadDeals();
+    // Coming back from an aisle: return to where you were on the overview.
+    if (!state.dealCat && state.dealsScroll != null) {
+      const y = state.dealsScroll;
+      state.dealsScroll = null;
+      requestAnimationFrame(() => window.scrollTo({ top: y }));
+      return;
+    }
+  }
   if (view === 'flyers') renderFlyers(arg, params);
   window.scrollTo({ top: 0 });
 }
@@ -312,16 +323,22 @@ function handleJob(job) {
     el.classList.add('err');
     el.innerHTML = `<div>Couldn't refresh deals: ${esc(job.error)}. Showing the most recent data available.</div>`;
   } else el.classList.add('hidden');
-  state.dealsKey = ''; // data may have changed
+  state.dealsStale = true; // data may have changed: refetch next time Deals loads (without a blank flash)
 }
 
 async function pollStatus() {
   try {
     const r = await api(`/api/status?zip=${state.zip}&radius=${state.radius}`);
+    // A store finished (or the whole refresh did): pull in its deals right away.
+    const sig = r.chains.map((c) => `${c.chain}:${c.status}:${c.updatedAt}`).join('|');
+    const changed = sig !== state.chainSig;
+    state.chainSig = sig;
     state.chains = r.chains;
     renderChains();
     handleJob(r.job);
-    if (!r.job?.running) route();
+    if (parseHash().view === 'deals') {
+      if (changed || !r.job?.running) loadDeals(true);
+    } else if (!r.job?.running) route();
   } catch (err) {
     $('#job').textContent = err.message;
     state.pollTimer = setTimeout(pollStatus, 5000);
@@ -660,13 +677,20 @@ $('#list-view').addEventListener('change', (e) => {
 });
 
 // ---------- deals ----------
-async function loadDeals() {
-  if (!state.zip || !state.selected.size || state.job?.running) return;
+/**
+ * Fetch deals for the selected stores. Runs while this week's ads are still loading too, so each store's
+ * deals show up as soon as it finishes; `force` re-fetches after more stores have finished.
+ */
+async function loadDeals(force = false) {
+  if (!state.zip || !state.selected.size) return;
   const key = `${state.zip}|${state.radius}|${[...state.selected].sort().join(',')}`;
-  if (key === state.dealsKey || state.dealsLoading) return;
+  if ((!force && !state.dealsStale && key === state.dealsKey) || state.dealsLoading) return;
   state.dealsLoading = true;
+  state.dealsStale = false;
   try {
     const r = await api(`/api/deals?zip=${state.zip}&radius=${state.radius}&stores=${[...state.selected].join(',')}`);
+    // Precompute each deal's lowercase search text once, so filtering while typing is cheap.
+    for (const d of r.deals) d._s = `${d.item} ${d.deptLabel} ${d.canonicals.join(' ')} ${d.chainName}`.toLowerCase();
     state.deals = r.deals;
     state.departments = r.departments;
     state.dealsKey = key;
@@ -674,7 +698,14 @@ async function loadDeals() {
     toast(err.message);
   } finally {
     state.dealsLoading = false;
-    if (parseHash().view === 'deals') renderDeals();
+    if (parseHash().view === 'deals') {
+      // Re-render without losing your place: keep the search box focused and the scroll position.
+      const typing = document.activeElement?.id === 'deal-q' ? document.activeElement.selectionStart : null;
+      const y = window.scrollY;
+      renderDeals();
+      window.scrollTo({ top: y });
+      if (typing != null) { const q = $('#deal-q'); q?.focus(); q?.setSelectionRange(typing, typing); }
+    }
   }
 }
 
@@ -751,6 +782,72 @@ const sortDeals = (rows, how) => [...rows].sort(
   : how === 'az' ? (a, b) => a.item.localeCompare(b.item)
   : (a, b) => b.score - a.score || (a.salePrice ?? Infinity) - (b.salePrice ?? Infinity));
 
+// ---------- deals navigation ----------
+// The open aisle lives in the URL (#deals?aisle=meat) so the on-screen back button and the phone's back
+// gesture both return to the overview. The store filter is a saved preference instead, so choosing a store
+// inside an aisle still applies after going back.
+const dealsHash = (aisle) => `#deals${aisle ? `?aisle=${encodeURIComponent(aisle)}` : ''}`;
+const PAGE_SIZE = 60; // cards rendered at once in a full list; "Show more" adds another page
+
+function openAisle(aisle) {
+  state.dealsScroll = window.scrollY; // where to return to on the overview
+  state.aisleFromOverview = true;
+  location.hash = dealsHash(aisle);
+}
+
+function backToAisles() {
+  if (state.aisleFromOverview) {
+    state.aisleFromOverview = false;
+    history.back();
+  } else {
+    // Opened directly on an aisle (bookmark/reload): there's no overview behind us in history.
+    location.replace(dealsHash(''));
+  }
+}
+
+function saveStoreFilter() {
+  ls.set('adweek:dealStores', state.dealChains);
+}
+
+const storeFilterLabel = () =>
+  !state.dealChains.length ? 'All stores' : state.dealChains.length === 1 ? state.dealChains[0] : `${state.dealChains[0]} +${state.dealChains.length - 1}`;
+
+function storeMenu(chains) {
+  const all = !state.dealChains.length;
+  return `<details class="multi" id="store-menu" ${state.storeMenuOpen ? 'open' : ''}>
+    <summary class="pick-like"><span>Stores</span><b>${esc(storeFilterLabel())}</b></summary>
+    <div class="menu" role="group" aria-label="Filter by store">
+      <label class="opt"><input type="checkbox" data-store-opt="" ${all ? 'checked' : ''}/> <span class="opt-name">All stores</span><span class="count">${state.deals.length}</span></label>
+      ${chains.map(([name, color]) => `<label class="opt"><input type="checkbox" data-store-opt="${esc(name)}" ${state.dealChains.includes(name) ? 'checked' : ''}/>
+        <span class="chain-dot" style="--chain:${color}"></span><span class="opt-name">${esc(name)}</span><span class="count">${state.deals.filter((d) => d.chainName === name).length}</span></label>`).join('')}
+      <button class="btn primary sm menu-done" type="button" data-store-done>Done</button>
+    </div>
+  </details>`;
+}
+
+/** Everything the Deals view shows, derived from the current filters. */
+function dealsModel() {
+  const chains = [...new Map(state.deals.map((d) => [d.chainName, d.chainColor])).entries()];
+  // Drop saved stores that aren't among this ZIP's selected stores.
+  state.dealChains = state.dealChains.filter((c) => chains.some(([n]) => n === c));
+  const q = state.dealQ.trim().toLowerCase();
+  const inChain = state.dealChains.length ? state.deals.filter((d) => state.dealChains.includes(d.chainName)) : state.deals;
+  const matchesQ = (d) => !q || d._s.includes(q);
+  const inAisle = (d) => !state.dealCat || (state.dealCat === 'dinner' ? d.canonicals.length > 0 : d.dept === state.dealCat);
+  const rows = inChain.filter((d) => inAisle(d) && matchesQ(d));
+  const depts = (state.departments || []).filter((dep) => inChain.some((d) => d.dept === dep.id));
+  const aisleLabel = state.dealCat === 'dinner' ? 'Dinner ingredients' : (state.departments || []).find((d) => d.id === state.dealCat)?.label;
+  return { chains, q, inChain, matchesQ, rows, depts, aisleLabel, browsing: !q && !state.dealCat };
+}
+
+function aisleOptions(m) {
+  const n = (pred) => m.inChain.filter((d) => pred(d) && m.matchesQ(d)).length;
+  return `<option value="">All aisles (${n(() => true)})</option>
+    <option value="dinner" ${state.dealCat === 'dinner' ? 'selected' : ''}>Dinner ingredients (${n((d) => d.canonicals.length > 0)})</option>
+    ${m.depts.map((dep) => `<option value="${dep.id}" ${state.dealCat === dep.id ? 'selected' : ''}>${esc(dep.label)} (${n((d) => d.dept === dep.id)})</option>`).join('')}`;
+}
+
+/** Full render: header + toolbar + results. Used when the view, aisle, stores or data change. */
 function renderDeals() {
   const el = $('#deals-view');
   if (!state.zip) {
@@ -758,25 +855,55 @@ function renderDeals() {
     return;
   }
   if (!state.dealsKey) {
-    el.innerHTML = `<div class="view-head"><h1 id="h-deals">Deals</h1></div><div class="cards">${'<div class="skel" style="height:122px"></div>'.repeat(6)}</div>`;
+    el.innerHTML = `<div class="view-head"><h1 id="h-deals">Deals</h1></div>${loadingNote()}<div class="cards">${'<div class="skel" style="height:110px"></div>'.repeat(6)}</div>`;
     return;
   }
   if (state.deals.length && state.deals[0].score == null) scoreDeals(state.deals);
-  const q = state.dealQ.trim().toLowerCase();
-  const chains = [...new Map(state.deals.map((d) => [d.chainName, d.chainColor])).entries()];
-  const inChain = state.deals.filter((d) => !state.dealChain || d.chainName === state.dealChain);
-  const matchesQ = (d) => !q || `${d.item} ${d.deptLabel} ${d.canonicals.join(' ')}`.toLowerCase().includes(q);
-  const inAisle = (d) => !state.dealCat || (state.dealCat === 'dinner' ? d.canonicals.length > 0 : d.dept === state.dealCat);
-  const rows = inChain.filter((d) => inAisle(d) && matchesQ(d));
-  const depts = (state.departments || []).filter((dep) => inChain.some((d) => d.dept === dep.id));
-  const n = (pred) => inChain.filter((d) => pred(d) && matchesQ(d)).length;
-  const browsing = !q && !state.dealCat;
+  const m = dealsModel();
+  el.innerHTML = `
+    ${state.dealCat ? '' : `<div class="view-head"><h1 id="h-deals">This week's deals</h1><p class="lede">${state.deals.length} grocery deals at your ${state.selected.size} stores. Tap any deal to see the original ad.</p></div>`}
+    ${loadingNote()}
+    <div class="deal-toolbar">
+      <label class="search">${ICON.search}<input id="deal-q" type="search" placeholder="Search berries, chips, chicken…" value="${esc(state.dealQ)}" aria-label="Search deals" autocomplete="off"/></label>
+      <div class="selects">
+        ${storeMenu(m.chains)}
+        <label class="pick"><span>Aisle</span><select id="deal-aisle">${aisleOptions(m)}</select></label>
+        <label class="pick"><span>Sort</span><select id="deal-sort">
+          ${Object.entries(SORTS).map(([v, l]) => `<option value="${v}" ${state.dealSort === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></label>
+      </div>
+      <div id="deal-crumb"></div>
+    </div>
+    <div id="deals-body"></div>`;
 
-  let body;
+  // Typing only redraws the results (after a short pause), never the search box itself.
+  let typing;
+  $('#deal-q').addEventListener('input', (e) => {
+    state.dealQ = e.target.value;
+    clearTimeout(typing);
+    typing = setTimeout(() => { state.dealLimit = PAGE_SIZE; renderDealsBody(); }, 160);
+  });
+  $('#deal-aisle').addEventListener('change', (e) => (e.target.value ? openAisle(e.target.value) : backToAisles()));
+  $('#deal-sort').addEventListener('change', (e) => { state.dealSort = e.target.value; renderDealsBody(); });
+  $('#store-menu').addEventListener('toggle', (e) => { state.storeMenuOpen = e.target.open; });
+  renderDealsBody(m);
+}
+
+/** Results only: the back/summary row, the cards, and the aisle counts. Cheap enough to run while typing. */
+function renderDealsBody(m = dealsModel()) {
+  const body = $('#deals-body');
+  if (!body) return;
+  const storesNote = state.dealChains.length ? ` at ${state.dealChains.join(', ')}` : '';
+  const { rows, q } = m;
+
+  let html;
   if (!rows.length) {
-    body = `<div class="empty-state slim"><h2>No deals match</h2><p>Try a different word, or clear the filters.</p><button class="btn secondary" data-clear>Clear filters</button></div>`;
-  } else if (!browsing) {
-    body = `<div class="cards">${sortDeals(rows, state.dealSort).map(dealCard).join('')}</div>`;
+    html = `<div class="empty-state slim"><h2>No deals match</h2><p>Try a different word or another store.</p><button class="btn secondary" data-clear>Show all deals</button></div>`;
+  } else if (!m.browsing) {
+    const sorted = sortDeals(rows, state.dealSort);
+    const shown = sorted.slice(0, state.dealLimit);
+    html = `<div class="cards">${shown.map(dealCard).join('')}</div>${sorted.length > shown.length
+      ? `<button class="btn secondary full show-more" data-more type="button">Show ${Math.min(PAGE_SIZE, sorted.length - shown.length)} more of ${sorted.length - shown.length}</button>` : ''}`;
   } else {
     // Curated overview: the week's standouts (max 2 per aisle), then the best few per aisle.
     const best = [];
@@ -786,7 +913,7 @@ function renderDeals() {
       if ((perDept[d.dept] = (perDept[d.dept] || 0) + 1) > 2) continue;
       best.push(d);
     }
-    const sections = depts.map((dep) => {
+    const sections = m.depts.map((dep) => {
       const all = rows.filter((d) => d.dept === dep.id);
       if (!all.length) return '';
       const top = sortDeals(all.filter((d) => !best.includes(d)), state.dealSort).slice(0, 4);
@@ -795,51 +922,54 @@ function renderDeals() {
           <button class="btn ghost sm" data-aisle="${dep.id}">See all ${all.length} →</button></div>
         <div class="cards">${top.map(dealCard).join('')}</div></section>`;
     }).join('');
-    body = `${best.length ? `<section class="dept-sec highlight-sec"><div class="dept-head"><h2 class="dept-title">⭐ Best deals this week</h2></div><div class="cards">${best.map(dealCard).join('')}</div></section>` : ''}${sections}`;
+    html = `${best.length ? `<section class="dept-sec highlight-sec"><div class="dept-head"><h2 class="dept-title">⭐ Best deals this week</h2></div><div class="cards">${best.map(dealCard).join('')}</div></section>` : ''}${sections}`;
   }
+  body.innerHTML = html;
 
-  const aisleLabel = state.dealCat === 'dinner' ? 'Dinner ingredients' : depts.find((d) => d.id === state.dealCat)?.label;
-  const active = [state.dealChain, state.dealCat ? aisleLabel : '', q ? `“${state.dealQ.trim()}”` : ''].filter(Boolean);
-  el.innerHTML = `
-    <div class="view-head"><h1 id="h-deals">This week's deals</h1><p class="lede">${state.deals.length} grocery deals at your ${state.selected.size} stores. Tap any deal to see the original ad.</p></div>
-    <div class="deal-toolbar">
-      <label class="search">${ICON.search}<input id="deal-q" type="search" placeholder="Search berries, chips, chicken…" value="${esc(state.dealQ)}" aria-label="Search deals"/></label>
-      <div class="selects">
-        <label class="pick"><span>Store</span><select id="deal-store">
-          <option value="">All stores (${state.deals.length})</option>
-          ${chains.map(([c]) => `<option value="${esc(c)}" ${state.dealChain === c ? 'selected' : ''}>${esc(c)} (${state.deals.filter((d) => d.chainName === c).length})</option>`).join('')}
-        </select></label>
-        <label class="pick"><span>Aisle</span><select id="deal-aisle">
-          <option value="">All aisles (${n(() => true)})</option>
-          <option value="dinner" ${state.dealCat === 'dinner' ? 'selected' : ''}>Dinner ingredients (${n((d) => d.canonicals.length > 0)})</option>
-          ${depts.map((dep) => `<option value="${dep.id}" ${state.dealCat === dep.id ? 'selected' : ''}>${esc(dep.label)} (${n((d) => d.dept === dep.id)})</option>`).join('')}
-        </select></label>
-        <label class="pick"><span>Sort</span><select id="deal-sort">
-          ${Object.entries(SORTS).map(([v, l]) => `<option value="${v}" ${state.dealSort === v ? 'selected' : ''}>${l}</option>`).join('')}
-        </select></label>
-      </div>
-      ${active.length ? `<div class="active-filters"><span>${rows.length} ${rows.length === 1 ? 'deal' : 'deals'} · ${active.map(esc).join(' · ')}</span><button class="link-clear" data-clear>Clear</button></div>` : ''}
-    </div>
-    ${body}`;
-
-  const input = $('#deal-q');
-  input.addEventListener('input', () => {
-    state.dealQ = input.value;
-    const pos = input.selectionStart;
-    renderDeals();
-    const again = $('#deal-q');
-    again.focus();
-    again.setSelectionRange(pos, pos);
-  });
-  $('#deal-store').addEventListener('change', (e) => { state.dealChain = e.target.value; renderDeals(); });
-  $('#deal-aisle').addEventListener('change', (e) => { state.dealCat = e.target.value; renderDeals(); window.scrollTo({ top: 0 }); });
-  $('#deal-sort').addEventListener('change', (e) => { state.dealSort = e.target.value; renderDeals(); });
+  $('#deal-crumb').innerHTML = state.dealCat
+    ? `<div class="crumb"><button class="back-link" data-back type="button">${ICON.back}<span>All aisles</span></button><span class="crumb-title">${esc(m.aisleLabel || '')} <span class="muted">· ${rows.length}${esc(storesNote)}</span></span></div>`
+    : q
+      ? `<div class="crumb"><button class="back-link" data-back type="button">${ICON.back}<span>All deals</span></button><span class="crumb-title">“${esc(state.dealQ.trim())}” <span class="muted">· ${rows.length}${esc(storesNote)}</span></span></div>`
+      : state.dealChains.length ? `<div class="crumb"><span class="crumb-title muted">${rows.length} deals${esc(storesNote)}</span><button class="link-clear" data-clear-stores>All stores</button></div>` : '';
+  const aisle = $('#deal-aisle');
+  if (aisle) aisle.innerHTML = aisleOptions(m);
 }
 
+/** Shown while this week's ads are still loading: deals appear store by store as each finishes. */
+function loadingNote() {
+  if (!state.job?.running) return '';
+  const ready = state.chains.filter((c) => c.status === 'ok').map((c) => c.name);
+  return `<div class="job" role="status"><span class="spinner"></span><div><b>Loading this week's ads…</b><div class="muted small">${ready.length ? `Showing ${esc(ready.join(', '))} so far. More stores appear as they finish.` : 'Deals will appear here store by store as each one finishes.'}</div></div></div>`;
+}
+
+$('#deals-view').addEventListener('change', (e) => {
+  const opt = e.target.closest('[data-store-opt]');
+  if (!opt) return;
+  const name = opt.dataset.storeOpt;
+  if (!name) state.dealChains = []; // "All stores"
+  else state.dealChains = opt.checked ? [...state.dealChains, name] : state.dealChains.filter((c) => c !== name);
+  saveStoreFilter();
+  state.storeMenuOpen = true; // keep the checklist open while ticking stores
+  state.dealLimit = PAGE_SIZE;
+  renderDeals();
+});
+
 $('#deals-view').addEventListener('click', (e) => {
+  if (e.target.closest('[data-store-done]')) { state.storeMenuOpen = false; $('#store-menu').open = false; return; }
   const aisle = e.target.closest('[data-aisle]');
-  if (aisle) { state.dealCat = aisle.dataset.aisle; renderDeals(); window.scrollTo({ top: 0 }); return; }
-  if (e.target.closest('[data-clear]')) { state.dealChain = ''; state.dealCat = ''; state.dealQ = ''; return renderDeals(); }
+  if (aisle) return openAisle(aisle.dataset.aisle);
+  if (e.target.closest('[data-more]')) { state.dealLimit += PAGE_SIZE; return renderDealsBody(); }
+  if (e.target.closest('[data-back]')) {
+    if (state.dealCat) return backToAisles();
+    state.dealQ = '';
+    $('#deal-q').value = '';
+    return renderDealsBody();
+  }
+  if (e.target.closest('[data-clear-stores]')) { state.dealChains = []; saveStoreFilter(); return renderDeals(); }
+  if (e.target.closest('[data-clear]')) {
+    state.dealChains = []; state.dealQ = ''; saveStoreFilter();
+    return state.dealCat ? backToAisles() : renderDeals();
+  }
   const add = e.target.closest('[data-add]');
   if (add) {
     const d = state.deals.find((x) => x.dealId === add.dataset.add);
@@ -854,6 +984,11 @@ $('#deals-view').addEventListener('click', (e) => {
 });
 $('#deals-view').addEventListener('keydown', (e) => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.deal[data-deal]')) { e.preventDefault(); e.target.click(); }
+});
+// Close the store checklist when tapping anywhere else.
+document.addEventListener('click', (e) => {
+  const menu = $('#store-menu');
+  if (menu?.open && !menu.contains(e.target)) { menu.open = false; state.storeMenuOpen = false; }
 });
 
 // ---------- flyers ----------
@@ -904,8 +1039,6 @@ $('#flyers-view').addEventListener('click', (e) => {
   if (fc) { state.flyerChain = fc.dataset.fchain; return renderFlyers(); }
   const toggle = e.target.closest('#grocery-only');
   if (toggle) { state.groceryOnly = !state.groceryOnly; return drawClips(); }
-  const pageBtn = e.target.closest('[data-page]');
-  if (pageBtn) { document.getElementById(`page-${pageBtn.dataset.page}`)?.scrollIntoView({ behavior: 'smooth' }); return; }
   const clip = e.target.closest('[data-clip]');
   if (clip) {
     const it = state.flyer.items.find((x) => String(x.id) === clip.dataset.clip);
@@ -936,13 +1069,14 @@ async function renderFlyerViewer(id, highlightId) {
     </div>
     <div class="viewer-tools">
       <label class="search">${ICON.search}<input id="flyer-q" type="search" placeholder="Search this ad" value="${esc(state.flyerQ)}" aria-label="Search this ad"/></label>
-      <div class="chips">
-        <button class="chip" id="grocery-only" aria-pressed="${state.groceryOnly}">Dinner ingredients only</button>
-        ${Array.from({ length: pages }, (_, i) => `<button class="chip" data-page="${i + 1}">Page ${i + 1}</button>`).join('')}
-      </div>
+      ${pages > 1 ? `<label class="pick page-pick"><span>Page</span><select id="flyer-page" aria-label="Jump to page">
+        ${Array.from({ length: pages }, (_, i) => `<option value="${i + 1}">${i + 1} of ${pages}</option>`).join('')}
+      </select></label>` : ''}
+      <button class="chip toggle-chip" id="grocery-only" aria-pressed="${state.groceryOnly}" title="Show only dinner ingredients">Dinner only</button>
     </div>
     <div id="clips"></div>`;
   $('#flyer-q').addEventListener('input', (e) => { state.flyerQ = e.target.value; drawClips(); });
+  $('#flyer-page')?.addEventListener('change', (e) => document.getElementById(`page-${e.target.value}`)?.scrollIntoView({ behavior: 'smooth' }));
   drawClips(highlightId);
 }
 
@@ -968,6 +1102,23 @@ function drawClips(highlightId) {
   if (highlightId) {
     const target = document.getElementById(`clip-${highlightId}`);
     if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+  }
+  // Keep the "Page" drop-down showing the page you're scrolled to: the last page whose top has
+  // passed under the sticky toolbar.
+  if (state.pageTracker) window.removeEventListener('scroll', state.pageTracker);
+  const pick = $('#flyer-page');
+  if (pick) {
+    const secs = [...box.querySelectorAll('.page-sec')];
+    state.pageTracker = () => {
+      if (!pick.isConnected) return;
+      let current = secs[0];
+      for (const sec of secs) {
+        if (sec.getBoundingClientRect().top <= 150) current = sec;
+        else break;
+      }
+      if (current) pick.value = current.id.replace('page-', '');
+    };
+    window.addEventListener('scroll', state.pageTracker, { passive: true });
   }
 }
 

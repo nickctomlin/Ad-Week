@@ -51,10 +51,14 @@ Five tabs: a bottom bar on phones, a top bar on desktop.
 - **List.** Shopping list grouped by store, with directions links, checkboxes and a copy button. Switch between best prices and a single store.
 - **Deals.** Every grocery item in this week's ads at your selected stores (about 640 for 75024), not just dinner ingredients, sorted into store aisles.
   - **Default view** is curated: "Best deals this week" (the biggest real savings, at most 2 per aisle), then the best 4 deals in each aisle with a "See all" link.
-  - **Toolbar:** a compact bar pinned under the header, with search plus Store, Aisle and Sort drop-downs. Picking an aisle or store, or searching, shows the full list.
+  - **Toolbar:** a compact bar pinned under the header, with search plus Stores, Aisle and Sort drop-downs. Picking an aisle or searching shows the full list, 60 cards at a time with "Show more".
+  - **Stores** is a checklist, so you can view several stores at once. Your choice is remembered, and it stays applied when you go back from an aisle.
+  - **Aisles have a back button.** Opening an aisle adds a history step (`#deals?aisle=meat`), so "← All aisles" or your phone's back gesture returns to the overview where you left it.
+  - **Search** filters as you type with no lag: results redraw after a short pause, and only the results redraw.
+  - **While ads are loading**, each store's deals appear as soon as that store finishes.
   - **Savings ranking:** % off when the ad prints a regular price, free and BOGO offers, "Save $X" coupons, and dinner ingredients priced below the typical price at other nearby stores.
   - **Coupon-style deals** with no single price ("Buy 2 get 1 free", "Save $2 with yellow coupon") show their terms instead of a price.
-- **Flyers.** Every current grocery weekly ad for your ZIP, page by page, as the actual ad clippings. Search within an ad, show only dinner ingredients, and see "In your plan" tags.
+- **Flyers.** Every current grocery weekly ad for your ZIP, page by page, as the actual ad clippings. A single compact toolbar row holds search, a Page drop-down that follows as you scroll, and a "Dinner only" toggle. Items already in your list are tagged.
 
 Tap any item to open its **item window**. It shows the real ad clipping (with the printed price), price, unit price, regular price, limit, valid-through date, and store, plus links to **verify the price**:
 - **Verify price.** Opens the item on flipp.com, or the product on kroger.com for Kroger API prices.
@@ -75,9 +79,16 @@ npm run ingest -- 75024 75074 75075 75034           # skips ZIPs that are still 
 npm run ingest -- 75024 --force                      # re-pull regardless (fresh ad list + Kroger prices)
 ```
 
-The UI also has a **Refresh deals** link. The first ingest of a new week's ads takes about 2 minutes:
-one request per flyer, plus one per grocery item (about 450), at 4 requests a second. After that, item
-details are cached for the life of the ad, so other ZIPs sharing those flyers, and re-runs, finish in seconds.
+The UI also has a **Refresh deals** link.
+
+**Speed.** Ingestion runs in parallel:
+- All chains' flyers and the Kroger API (a different host) load at the same time.
+- Every chain and every Kroger store loads in parallel.
+- Each chain fetches several item details at once, and each Kroger store prices 6 ingredients at once.
+
+A per-host limiter in `src/http.ts` keeps it polite: Flipp at most 4 concurrent and 8 requests a second; Kroger 6 concurrent.
+
+A forced refresh of a ZIP (fresh ad list plus Kroger prices for 3 stores) takes about 20 seconds. Before the parallel version it took about 4½ minutes. A brand-new week's ads add about a minute the first time, for about 500 item details. Those are then cached for the life of the ad, so other ZIPs sharing those flyers finish in seconds. Each chain's deals are saved, and show up in the app, as soon as that chain finishes.
 
 ```bash
 npm test          # pricing/budget + name-normalization tests (node:test)
@@ -130,7 +141,7 @@ plan request ──► per-store offers ──► recipe pool (Claude or built-i
 
 Flipp's endpoints (`backflipp.wishabi.com`) are the **public, unauthenticated** ones behind flipp.com.
 They are not a documented API. They're used here for a personal, non-commercial PoC with an
-identifying User-Agent, ≤4 requests/second, and aggressive caching. No logins, keys, paywalls or
+identifying User-Agent, at most 4 concurrent requests and 8 per second, and aggressive caching. No logins, keys, paywalls or
 bot protection are bypassed. Store locations are © OpenStreetMap contributors (ODbL), fetched within
 Nominatim's 1 request/second policy. See `FEASIBILITY.md` for the research behind these choices.
 
