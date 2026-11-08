@@ -1339,9 +1339,7 @@ function watchButton(x) {
 function historyBlock(x) {
   if (x.price == null) return '';
   const h = x.history;
-  if (!h || h.weeks.length < 2) {
-    return `<div class="hist"><b>Price history</b><p class="muted small">First week we've seen this item here. Its price history builds each week.</p></div>`;
-  }
+  if (!h || h.weeks.length < 2) return ''; // nothing to compare yet: leave the section out
   const pts = h.weeks.slice(-10);
   const max = Math.max(...pts.map(([, p]) => p));
   const low = lowestLabel({ salePrice: x.price, history: h });
