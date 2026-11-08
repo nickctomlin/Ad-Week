@@ -359,6 +359,25 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
   background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
 }
 .deal-toolbar .search input { min-height: 42px; }
+/* A clip of 0 when expanded so the condense can animate; skipped while the store checklist is open so its menu isn't cut off. */
+.deal-toolbar { transition: clip-path .2s ease; }
+.deal-toolbar:not(:has(.multi[open])) { clip-path: inset(0 0 0 0); }
+.bar-more { display: grid; gap: 8px; transition: opacity .15s ease, visibility 0s; }
+.search-row { display: flex; gap: 8px; align-items: center; }
+.search-row .search { flex: 1; min-width: 0; }
+.bar-back, .filter-pill { display: none; height: 42px; }
+.bar-back { width: 42px; }
+.filter-pill { align-items: center; gap: 4px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; flex: none; }
+.filter-pill svg { width: 18px; height: 18px; }
+.filter-count:empty { display: none; }
+.filter-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .7rem; display: grid; place-items: center; }
+/* Condensed: clip off everything below the search row. Clipping (not shrinking) keeps the page from jumping. */
+.deal-toolbar.collapsed:not(:has(.multi[open])) { clip-path: inset(0 0 var(--hide, 0px) 0); }
+.deal-toolbar.collapsed .bar-more { opacity: 0; visibility: hidden; transition: opacity .15s ease, visibility 0s .2s; }
+.deal-toolbar.collapsed .filter-pill { display: inline-flex; }
+.deal-toolbar.collapsed.can-back .bar-back { display: grid; }
+.deal-toolbar.collapsed::after { content: ""; position: absolute; left: 0; right: 0; bottom: var(--hide, 0px); border-bottom: 1px solid var(--border); }
+@media (prefers-reduced-motion: reduce) { .deal-toolbar, .bar-more, .deal-toolbar.collapsed .bar-more { transition: none; } }
 .selects { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .pick { position: relative; display: block; }
 .pick span { position: absolute; left: 11px; top: 5px; font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); pointer-events: none; }

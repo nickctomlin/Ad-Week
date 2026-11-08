@@ -38,6 +38,7 @@ const ICON = {
   moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
   ext: svg('<path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>'),
   pin: svg('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+  filter: svg('<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'),
   search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
   shuffle: svg('<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>'),
   swap: svg('<path d="M4 7h13l-3-3M20 17H7l3 3"/>'),
@@ -963,8 +964,13 @@ function renderDeals() {
   el.innerHTML = `
     ${state.dealCat ? '' : `<div class="view-head"><h1 id="h-deals">This week's deals</h1><p class="lede">${state.deals.length} grocery deals at your ${state.selected.size} stores. Tap any deal to see the original ad.</p></div>`}
     ${loadingNote()}
-    <div class="deal-toolbar">
-      <label class="search">${ICON.search}<input id="deal-q" type="search" placeholder="Search berries, chips, chicken…" value="${esc(state.dealQ)}" aria-label="Search deals" autocomplete="off"/></label>
+    <div class="deal-toolbar${state.dealBarCollapsed ? ' collapsed' : ''}">
+      <div class="search-row">
+        <button class="icon-btn bar-back" data-back type="button" aria-label="Back">${ICON.back}</button>
+        <label class="search">${ICON.search}<input id="deal-q" type="search" placeholder="Search berries, chips, chicken…" value="${esc(state.dealQ)}" aria-label="Search deals" autocomplete="off"/></label>
+        <button class="filter-pill" data-show-filters type="button" aria-label="Show filters">${ICON.filter}<span class="filter-count"></span></button>
+      </div>
+      <div class="bar-more">
       <div class="selects">
         ${storeMenu(m.chains)}
         <label class="pick"><span>Aisle</span><select id="deal-aisle">${aisleOptions(m)}</select></label>
@@ -973,6 +979,7 @@ function renderDeals() {
         </select></label>
       </div>
       <div id="deal-crumb"></div>
+      </div>
     </div>
     <div id="deals-body"></div>`;
 
@@ -1046,7 +1053,52 @@ function renderDealsBody(m = dealsModel()) {
       : state.dealChains.length ? `<div class="crumb"><span class="crumb-title muted">${rows.length} deals${esc(storesNote)}</span><button class="link-clear" data-clear-stores>All stores</button></div>` : '';
   const aisle = $('#deal-aisle');
   if (aisle) aisle.innerHTML = aisleOptions(m);
+  // What the condensed bar shows: a back arrow when there's somewhere to go back to, and how many filters are on.
+  const bar = $('.deal-toolbar');
+  const count = (state.dealChains.length ? 1 : 0) + (state.dealCat ? 1 : 0) + (state.dealSort !== 'best' ? 1 : 0);
+  bar.classList.toggle('can-back', !!(state.dealCat || q));
+  bar.querySelector('.filter-count').textContent = count || '';
+  sizeDealBar();
 }
+
+// ---------- Deals: condense the filter bar while scrolling down ----------
+// Scrolling down hides the drop-downs (search stays); scrolling up or reaching the top brings them back.
+// The bar is clipped rather than shrunk, so the page never jumps.
+function sizeDealBar() {
+  const bar = $('.deal-toolbar');
+  if (!bar) return;
+  const row = bar.querySelector('.search-row');
+  const hide = bar.getBoundingClientRect().bottom - row.getBoundingClientRect().bottom - 10;
+  bar.style.setProperty('--hide', `${Math.max(0, hide)}px`);
+}
+
+function setDealBarCollapsed(on) {
+  const bar = $('.deal-toolbar');
+  if (!bar || state.dealBarCollapsed === on) return;
+  if (on) {
+    if (state.storeMenuOpen || bar.querySelector('.bar-more').contains(document.activeElement)) return;
+    sizeDealBar();
+  }
+  state.dealBarCollapsed = on;
+  bar.classList.toggle('collapsed', on);
+}
+
+let lastScrollY = window.scrollY;
+let scrollRun = 0; // distance scrolled in the current direction
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  const dy = y - lastScrollY;
+  lastScrollY = y;
+  const bar = $('.deal-toolbar');
+  if (!bar || !bar.isConnected || bar.closest('.hidden')) return;
+  // Only condense once the bar is pinned under the app bar; above that it's in its normal place.
+  const pinned = bar.getBoundingClientRect().top <= parseFloat(getComputedStyle(bar).top) + 1;
+  if (!pinned || y < 80) { scrollRun = 0; return setDealBarCollapsed(false); }
+  scrollRun = Math.sign(dy) === Math.sign(scrollRun) ? scrollRun + dy : dy;
+  if (scrollRun > 24) setDealBarCollapsed(true);
+  else if (scrollRun < -24) setDealBarCollapsed(false);
+}, { passive: true });
+document.addEventListener('focusin', (e) => { if (e.target.closest?.('.deal-toolbar .bar-more')) setDealBarCollapsed(false); });
 
 /** Shown while this week's ads are still loading: deals appear store by store as each finishes. */
 function loadingNote() {
@@ -1073,6 +1125,7 @@ $('#deals-view').addEventListener('click', (e) => {
   const aisle = e.target.closest('[data-aisle]');
   if (aisle) return openAisle(aisle.dataset.aisle);
   if (e.target.closest('[data-more]')) { state.dealLimit += PAGE_SIZE; return renderDealsBody(); }
+  if (e.target.closest('[data-show-filters]')) { scrollRun = 0; return setDealBarCollapsed(false); }
   if (e.target.closest('[data-back]')) {
     if (state.dealCat) return backToAisles();
     state.dealQ = '';
