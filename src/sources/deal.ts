@@ -7,6 +7,18 @@ import type { Deal } from './types.ts';
 type Computed = 'canonical' | 'category' | 'dept' | 'pkg_qty' | 'size_estimated' | 'unit_price' | 'unit_price_unit';
 export type DealBase = Omit<Deal, Computed>;
 
+/** Label the advertised price by what the shopper actually buys. */
+export function displayPriceUnit(deal: Pick<Deal, 'sold_by' | 'pkg_qty' | 'unit_price_unit'>, can?: Canonical): string {
+  if (deal.sold_by === 'weight') return 'lb';
+  if (can) return can.unit === 'pkg' ? 'pkg'
+    : deal.pkg_qty && deal.pkg_qty !== 1 ? `pkg (${+deal.pkg_qty.toFixed(2)} ${can.unit})`
+    : can.unit === 'lb' ? 'pkg' : 'each';
+  if (deal.pkg_qty && (deal.unit_price_unit === 'lb' || deal.unit_price_unit === 'ct')) {
+    return `pkg (${+deal.pkg_qty.toFixed(2)} ${deal.unit_price_unit})`;
+  }
+  return 'each';
+}
+
 /** A deal that prices a dinner ingredient (usable by the planner). Requires a numeric price. */
 export function buildDeal(base: DealBase & { sale_price: number }, can: Canonical, sizeText: string): Deal | undefined {
   let pkg: number | null = null;

@@ -5,6 +5,7 @@ import { latestRuns, getJob } from './ingest.ts';
 import { CHAINS, CHAIN_BY_ID, type ChainId, type Deal } from './sources/types.ts';
 import type { StoreWithDistance } from './stores.ts';
 import { CANONICAL_BY_KEY } from './normalize.ts';
+import { displayPriceUnit } from './sources/deal.ts';
 import { DEPARTMENTS, deptLabel } from './departments.ts';
 import { historyKey, historyFor, adWeek } from './history.ts';
 import { buildList, buildOneStoreList, choosePlan, swapMeal, mealCosts, unpriced, portionRecipe, type Offer, type ShoppingList } from './planner.ts';
@@ -154,9 +155,7 @@ export function dealsForDisplay(zip: string, stores: StoreWithDistance[]) {
     const s = storeLevel ? storeById.get(rep.store_id!) ?? targets[0] : targets[0];
     const can = rep.canonical ? CANONICAL_BY_KEY.get(rep.canonical) : undefined;
     const price = rep.sale_price;
-    let priceUnit = 'each';
-    if (rep.sold_by === 'weight') priceUnit = 'lb';
-    else if (can) priceUnit = can.unit === 'pkg' ? 'pkg' : rep.pkg_qty && rep.pkg_qty !== 1 ? `pkg (${+rep.pkg_qty.toFixed(2)} ${can.unit})` : can.unit === 'lb' ? 'pkg' : 'each';
+    const priceUnit = displayPriceUnit(rep, can);
     out.push({
       dealId: rep.id, item: rep.item_name,
       canonical: rep.canonical, canonicals: [...new Set(ds.map((d) => d.canonical).filter(Boolean))],

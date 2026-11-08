@@ -838,9 +838,10 @@ function shortPromo(text) {
 
 function dealPrice(d) {
   if (d.salePrice == null) return `<div class="d-price"><span class="promo">${esc(shortPromo(d.promoText))}</span></div>`;
-  // Show the pack size only when it's simple ("/lb", "/each", "/pkg"); details live in the item window.
-  const unit = d.priceUnit && d.priceUnit.length <= 5 ? `<span class="d-unit">/${esc(d.priceUnit)}</span>` : '';
-  return `<div class="d-price"><b>${money(d.salePrice)}</b>${unit}${d.regularPrice ? `<s>${money(d.regularPrice)}</s>` : ''}</div>`;
+  const unit = d.priceUnit ? `<span class="d-unit">/${esc(d.priceUnit)}</span>` : '';
+  const perLb = d.priceUnit !== 'lb' && d.unitPrice != null && d.unitPriceUnit === 'lb'
+    ? `<span class="d-unit">≈ ${money(d.unitPrice)}/lb</span>` : '';
+  return `<div class="d-price"><b>${money(d.salePrice)}</b>${unit}${perLb}${d.regularPrice ? `<s>${money(d.regularPrice)}</s>` : ''}</div>`;
 }
 
 const addBtn = (id) => {
