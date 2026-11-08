@@ -446,7 +446,9 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 .low-tag { color: var(--accent); font-weight: 650; }
 .watch-sec { background: linear-gradient(180deg, color-mix(in srgb, #e0a100 14%, transparent), transparent 85%); border-radius: var(--radius-lg); padding: 12px; margin-left: -4px; margin-right: -4px; }
 .watch-hint { background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 10px 12px; font-size: .84rem; color: var(--text-2); margin-bottom: 18px; }
-.watch-toggle { justify-content: space-between; }
+.watch-toggle { justify-content: space-between; white-space: normal; text-align: left; gap: 10px; }
+.watch-toggle > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.watch-toggle > .small { flex: none; }
 .watch-toggle.on { border-color: #e0a100; }
 .watch-add { display: flex; gap: 8px; }
 .watch-add input { min-height: 42px; }
@@ -510,7 +512,7 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 /* While the item window is open only it scrolls, never the page behind it. */
 html:has(.sheet[open]) { overflow: hidden; }
-.sheet-inner { overscroll-behavior: none; } /* no bounce: pulling down at the top drags the whole window instead */
+.sheet-inner { overscroll-behavior: none; overflow-x: hidden; } /* no bounce: pulling down at the top drags the whole window instead */
 .sheet-inner { background: var(--surface); border-radius: 22px 22px 0 0; max-height: 92dvh; overflow: auto; box-shadow: var(--shadow-lg); padding-bottom: env(safe-area-inset-bottom); }
 @media (min-width: 640px) { .sheet { margin: auto; } .sheet-inner { border-radius: 22px; } }
 .sheet-grab { width: 40px; height: 5px; border-radius: 999px; background: var(--border-strong); margin: 8px auto 0; }
@@ -521,7 +523,7 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet-hero { overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .sheet-hero.zoomed .cap { opacity: 0; }
 .sheet-hero .cap { position: absolute; left: 12px; bottom: 10px; font-size: .68rem; background: rgb(0 0 0 / .6); color: #fff; padding: 3px 8px; border-radius: 999px; }
-.sheet-content { padding: 16px 18px 20px; display: grid; gap: 14px; }
+.sheet-content { padding: 16px 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; overflow-wrap: anywhere; }
 .sheet-content h2 { font-size: 1.12rem; line-height: 1.3; }
 .price-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .price-row .big { font-size: 2rem; font-weight: 800; color: var(--sale); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
