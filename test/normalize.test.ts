@@ -53,6 +53,13 @@ test('interprets flyer price text', () => {
   assert.equal(twoFor?.price, 2.5);
   assert.equal(twoFor?.soldBy, 'package');
   assert.equal(parsePrice({ current_price: 10, pre_price_text: '10 for' })?.price, 1);
+  // A sized bag is a package price, not $/lb (ALDI: "$1.99 Per 2-Lb. Bag").
+  assert.equal(parsePrice({ current_price: '1.99', price_text: 'Per 2-Lb. Bag' })?.soldBy, 'package');
+  assert.equal(parsePrice({ current_price: '3.49', price_text: '3 lb bag' })?.soldBy, 'package');
+  assert.deepEqual(parseSize('Michigan Honeycrisp Apples Per 2-Lb. Bag'), { qty: 2, unit: 'lb' });
+  for (const t of ['Per Lb.', '/lb With Card', 'LB.', '/LB With Digital Coupon', 'lb.']) {
+    assert.equal(parsePrice({ current_price: '1.99', price_text: t })?.soldBy, 'weight', t);
+  }
   assert.equal(parsePrice({ current_price: null }), undefined);
   assert.equal(parsePrice({ current_price: '' }), undefined);
 });

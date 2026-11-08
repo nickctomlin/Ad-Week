@@ -215,6 +215,7 @@ export type PriceInfo = {
  *   current 2.77, post "lb member price"   -> $2.77/lb (weight)
  *   current 5, pre "2/"                    -> $2.50 each
  *   current 10, pre "10 for"               -> $1.00 each
+ *   current 1.99, post "Per 2-Lb. Bag"     -> $1.99 per package (the 2 lb size is read by parseSize)
  */
 export function parsePrice(f: { current_price?: number | string | null; pre_price_text?: string | null; price_text?: string | null; sale_story?: string | null }): PriceInfo | undefined {
   const raw = f.current_price == null || f.current_price === '' ? NaN : Number(f.current_price);
@@ -234,7 +235,9 @@ export function parsePrice(f: { current_price?: number | string | null; pre_pric
   if (/starting at|as low as|from\b/.test(pre)) notes.push('price is "starting at"');
   if (/member|card|digital|app|rewards|loyalty/.test(post + ' ' + story)) notes.push('member/digital price');
   if (/buy \d+ get|bogo/.test(pre + ' ' + post + ' ' + story)) notes.push('BOGO offer (priced as single item)');
-  const weight = /\blb\b|\blbs\b|per pound|\/lb/.test(post) || /\/lb|per lb/.test(pre);
+  // "lb" with a quantity in front ("Per 2-Lb. Bag", "3 lb bag") is a package size, not a per-pound price.
+  const unsized = (t: string) => t.replace(/\d+(?:\.\d+)?\s*-?\s*(?:lbs?|pounds?)\b/g, ' ');
+  const weight = /\blb\b|\blbs\b|per pound|\/lb/.test(unsized(post)) || /\/lb|per lb/.test(unsized(pre));
   return { price: round2(price), soldBy: weight ? 'weight' : 'package', multiBuy, note: notes.join('; ') || undefined };
 }
 

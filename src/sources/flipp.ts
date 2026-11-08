@@ -137,16 +137,18 @@ export async function fetchFlyerDeals(zip: string, flyer: FlyerMeta, onProgress?
       fetched_at: Date.now(),
     };
 
+    // The pack size is sometimes only in the price text ("$1.99 Per 2-Lb. Bag"), so read it last.
+    const sizeTail = ' ' + [d.description, d.price_text].filter(Boolean).join(' ');
     const matched = price ? matchAdName(name) : [];
     const dinner = matched
-      .map(({ part, canonical }) => buildDeal({ ...base, id: `${base.id}:${canonical.key}`, sale_price: price!.price }, canonical, part + ' ' + (d.description || '')))
+      .map(({ part, canonical }) => buildDeal({ ...base, id: `${base.id}:${canonical.key}`, sale_price: price!.price }, canonical, part + sizeTail))
       .filter((x): x is Deal => !!x);
     if (dinner.length) return dinner;
     // Display-only: not a dinner ingredient, or one advertised without a single price (e.g. BOGO).
     const can = matchAdName(name)[0]?.canonical;
     const sorted = classifyDept(name);
     const dept = sorted === 'other' && can ? deptForCanonical(can.key, can.category) : sorted;
-    return dept ? [buildGenericDeal(base, dept, name + ' ' + (d.description || ''))] : [];
+    return dept ? [buildGenericDeal(base, dept, name + sizeTail)] : [];
   });
   return perItem.flat();
 }
