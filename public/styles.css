@@ -517,9 +517,8 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet-close { position: absolute; right: 12px; top: 12px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgb(0 0 0 / .55); color: #fff; font-size: 1.1rem; cursor: pointer; z-index: 2; }
 .sheet-hero { position: relative; background: #fff; display: grid; place-items: center; padding: 14px; border-bottom: 1px solid var(--border); }
 .sheet-hero img { max-height: 46dvh; width: auto; border-radius: 8px; transform-origin: center; will-change: transform; }
-/* The picture can be zoomed: it stays inside its box, and once zoomed one finger drags it. */
+/* The picture can be pinch-zoomed inside its box; it springs back on release. */
 .sheet-hero { overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-.sheet-hero.zoomed { touch-action: none; cursor: zoom-out; }
 .sheet-hero.zoomed .cap { opacity: 0; }
 .zoom-hint { display: none; }
 @media (pointer: coarse) { .zoom-hint { display: inline; } }

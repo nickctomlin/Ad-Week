@@ -1403,75 +1403,38 @@ function openSheet(x) {
 }
 
 /**
- * Pinch, drag and double-tap zoom for the picture in the item window. The rest of the app can't be
- * zoomed, so this is the one place you can look closer at an ad's fine print.
+ * Pinch to zoom the picture in the item window; it springs back when you let go. The rest of the app
+ * can't be zoomed, so this is the one place to look closer at an ad's fine print.
  */
 function enableZoom(box, img) {
-  let s = 1, tx = 0, ty = 0; // current scale and offset (px, from the picture's center)
-  let pinch = null, pan = null, lastTap = 0, lastTouch = 0;
-  const center = () => { const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
-  const rel = (t) => { const c = center(); return { x: t.clientX - c.x, y: t.clientY - c.y }; };
-  const mid = (a, b) => rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
+  let pinch = null;
+  const rel = (x, y) => { const r = box.getBoundingClientRect(); return { x: x - r.left - r.width / 2, y: y - r.top - r.height / 2 }; };
+  const mid = (a, b) => rel((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
   const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-  const apply = (animate) => {
-    img.style.transition = animate ? 'transform .2s ease' : 'none';
-    img.style.transform = s === 1 ? '' : `translate(${tx}px, ${ty}px) scale(${s})`;
-    box.classList.toggle('zoomed', s > 1);
+  const reset = () => {
+    pinch = null;
+    img.style.transition = 'transform .25s ease';
+    img.style.transform = '';
+    box.classList.remove('zoomed');
   };
-  // Keep the zoomed picture covering the box: no dragging it off into empty space.
-  const settle = () => {
-    s = Math.min(5, Math.max(1, s));
-    if (s < 1.05) { s = 1; tx = ty = 0; }
-    const mx = Math.max(0, (img.offsetWidth * s - box.clientWidth) / 2);
-    const my = Math.max(0, (img.offsetHeight * s - box.clientHeight) / 2);
-    tx = Math.max(-mx, Math.min(mx, tx));
-    ty = Math.max(-my, Math.min(my, ty));
-    apply(true);
-  };
-  // Zoom to scale `to` keeping the point `p` (relative to the center) under the finger.
-  const zoomAt = (p, to) => { tx = p.x - (p.x - tx) * (to / s); ty = p.y - (p.y - ty) * (to / s); s = to; };
-  const toggle = (p) => { if (s > 1) { s = 1; tx = ty = 0; } else zoomAt(p, 2.5); settle(); };
-
   box.addEventListener('touchstart', (e) => {
-    lastTouch = Date.now();
-    const t = e.touches;
-    if (t.length === 2) {
-      pinch = { d: dist(t[0], t[1]), s, tx, ty, m: mid(t[0], t[1]) };
-      pan = null;
-    } else if (t.length === 1) {
-      const now = Date.now();
-      if (now - lastTap < 300) { e.preventDefault(); lastTap = 0; return toggle(rel(t[0])); }
-      lastTap = now;
-      pan = s > 1 ? { x: t[0].clientX, y: t[0].clientY, tx, ty } : null;
-    }
-  }, { passive: false });
+    if (e.touches.length === 2) pinch = { d: dist(e.touches[0], e.touches[1]), m: mid(e.touches[0], e.touches[1]) };
+  }, { passive: true });
   box.addEventListener('touchmove', (e) => {
     const t = e.touches;
-    if (t.length === 2 && pinch) {
-      e.preventDefault();
-      const to = Math.min(6, Math.max(0.8, pinch.s * dist(t[0], t[1]) / pinch.d));
-      const c = mid(t[0], t[1]);
-      // The spot that was under the fingers when the pinch began stays under them.
-      tx = c.x - (pinch.m.x - pinch.tx) * (to / pinch.s);
-      ty = c.y - (pinch.m.y - pinch.ty) * (to / pinch.s);
-      s = to;
-      lastTap = 0;
-      apply(false);
-    } else if (t.length === 1 && pan) {
-      e.preventDefault(); // zoomed in: one finger moves the picture instead of scrolling the window
-      tx = pan.tx + t[0].clientX - pan.x;
-      ty = pan.ty + t[0].clientY - pan.y;
-      if (Math.abs(t[0].clientX - pan.x) + Math.abs(t[0].clientY - pan.y) > 10) lastTap = 0;
-      apply(false);
-    }
+    if (t.length !== 2 || !pinch) return;
+    e.preventDefault();
+    const s = Math.min(5, Math.max(1, dist(t[0], t[1]) / pinch.d));
+    const c = mid(t[0], t[1]);
+    // The spot that was under your fingers stays under them as you spread or move them.
+    const tx = c.x - pinch.m.x * s, ty = c.y - pinch.m.y * s;
+    img.style.transition = 'none';
+    img.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+    box.classList.add('zoomed');
   }, { passive: false });
-  box.addEventListener('touchend', (e) => {
-    const t = e.touches;
-    if (t.length === 1 && pinch) { pinch = null; pan = s > 1 ? { x: t[0].clientX, y: t[0].clientY, tx, ty } : null; return; }
-    if (!t.length) { pinch = null; pan = null; settle(); }
-  });
-  // Mouse: double-click to zoom (ignored right after a touch, which handles its own double-tap).
-  box.addEventListener('dblclick', (e) => { if (Date.now() - lastTouch > 800) toggle(rel(e)); });
+  // Lifting a finger ends the zoom.
+  box.addEventListener('touchend', () => { if (pinch) reset(); });
+  box.addEventListener('touchcancel', reset);
 }
 // Dragging on the dimmed area around the item window shouldn't scroll the page behind it.
 $('#sheet').addEventListener('touchmove', (e) => { if (!e.target.closest('.sheet-inner')) e.preventDefault(); }, { passive: false });
