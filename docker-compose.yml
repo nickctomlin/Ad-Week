@@ -6,9 +6,12 @@ services:
     container_name: adweek
     restart: unless-stopped
     ports:
-      # Reachable from your LAN and your tailnet. To allow ONLY Tailscale, replace with your
-      # server's Tailscale IP, e.g. "100.101.102.103:3000:3000".
-      - "3000:3000"
+      # Host port comes from ADWEEK_PORT in .env (default 3000); the container always uses 3000.
+      # Reachable from your LAN and your tailnet. To allow ONLY Tailscale, set ADWEEK_BIND to your
+      # server's Tailscale IP in .env, e.g. ADWEEK_BIND=100.101.102.103
+      - "${ADWEEK_BIND:-0.0.0.0}:${ADWEEK_PORT:-3000}:3000"
+    environment:
+      PORT: "3000"        # keeps the container on 3000 even if .env sets PORT for local runs
     env_file:
       - path: .env        # KROGER_CLIENT_ID / KROGER_CLIENT_SECRET (and optional ANTHROPIC_API_KEY)
         required: false

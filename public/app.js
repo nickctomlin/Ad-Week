@@ -1386,7 +1386,7 @@ function paintInstall() {
   let html = '';
   if (isStandalone()) html = '';
   else if (!window.isSecureContext) {
-    html = `<div class="install-row">${ICON.ext}<div><b>Install Ad Week as an app</b><p class="muted small">Your phone can only install it over HTTPS. On the server, run <code>tailscale serve --bg 3000</code> and open the https:// address it shows.</p></div></div>`;
+    html = `<div class="install-row">${ICON.ext}<div><b>Install Ad Week as an app</b><p class="muted small">Your phone can only install it over HTTPS. On the server, run <code>tailscale serve --bg ${location.port || 3000}</code> and open the https:// address it shows.</p></div></div>`;
   } else if (installPrompt) {
     html = `<div class="install-row"><img src="icons/icon-192.png" alt="" width="44" height="44"/><div><b>Install Ad Week</b><p class="muted small">Opens full-screen from your home screen and works without signal in the store.</p></div><button class="btn primary" type="button" data-install>Install</button></div>`;
   } else if (ios) {

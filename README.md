@@ -86,6 +86,8 @@ cp .env.example .env            # add your Kroger keys
 docker compose up -d --build    # http://<server>:3000
 ```
 
+**Different port?** If 3000 is taken, add `ADWEEK_PORT=3001` (or any free port) to `.env` on the server and rerun `docker compose up -d`. Keep the setting in `.env` rather than editing `docker-compose.yml`, so `git pull` never conflicts with your local changes.
+
 **To update later:** run `git pull`, then `docker compose up -d --build`. Use a rebuild, not just a restart, because the code is baked into the image. Your deals, list, watches and price history live in the `adweek-data` volume and are kept. Compose only manages Ad Week's container, so other containers (e.g. Jellyfin) are untouched.
 
 **Install as an app.** Ad Week is a Progressive Web App:
@@ -95,8 +97,10 @@ docker compose up -d --build    # http://<server>:3000
 Phones only allow installing on **HTTPS**. With Tailscale, run this once on the server:
 
 ```bash
-tailscale serve --bg 3000       # serves https://<server-name>.<tailnet>.ts.net
+tailscale serve --bg 3000       # use your ADWEEK_PORT if you changed it; serves https://<server-name>.<tailnet>.ts.net
 ```
+
+If something else (e.g. Jellyfin) already uses that HTTPS address, give Ad Week its own: `tailscale serve --bg --https=8443 3000`, then use `https://<server-name>.<tailnet>.ts.net:8443`.
 
 Then open that https:// address on your phone:
 - **Android (Chrome):** tap **Install** on the Setup tab, or use the ⋮ menu → *Install app*.
