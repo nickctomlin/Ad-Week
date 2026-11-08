@@ -129,3 +129,12 @@ CREATE TABLE IF NOT EXISTS tracked_zips (
   last_requested INTEGER NOT NULL
 );
 `);
+
+// Bump when deal parsing changes (prices, units, departments). Saved deals are then rebuilt on the next
+// visit or scheduled refresh, re-reading the cached ads, instead of showing stale numbers until the ads
+// expire. History: 2 = sized produce bags ("Per 2-Lb. Bag") priced per package, not per pound.
+const DEALS_VERSION = 2;
+if (((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version) < DEALS_VERSION) {
+  db.exec('DELETE FROM ingest_runs');
+  db.exec(`PRAGMA user_version = ${DEALS_VERSION}`);
+}
