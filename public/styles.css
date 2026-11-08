@@ -508,12 +508,21 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 .sheet::backdrop { background: rgb(10 10 5 / .55); backdrop-filter: blur(3px); }
 .sheet[open] { animation: up .22s cubic-bezier(.2, .8, .2, 1); }
 @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* While the item window is open only it scrolls, never the page behind it. */
+html:has(.sheet[open]) { overflow: hidden; }
+.sheet-inner { overscroll-behavior: contain; }
 .sheet-inner { background: var(--surface); border-radius: 22px 22px 0 0; max-height: 92dvh; overflow: auto; box-shadow: var(--shadow-lg); padding-bottom: env(safe-area-inset-bottom); }
 @media (min-width: 640px) { .sheet { margin: auto; } .sheet-inner { border-radius: 22px; } }
 .sheet-grab { width: 40px; height: 5px; border-radius: 999px; background: var(--border-strong); margin: 8px auto 0; }
 .sheet-close { position: absolute; right: 12px; top: 12px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgb(0 0 0 / .55); color: #fff; font-size: 1.1rem; cursor: pointer; z-index: 2; }
 .sheet-hero { position: relative; background: #fff; display: grid; place-items: center; padding: 14px; border-bottom: 1px solid var(--border); }
-.sheet-hero img { max-height: 46dvh; width: auto; border-radius: 8px; }
+.sheet-hero img { max-height: 46dvh; width: auto; border-radius: 8px; transform-origin: center; will-change: transform; }
+/* The picture can be zoomed: it stays inside its box, and once zoomed one finger drags it. */
+.sheet-hero { overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.sheet-hero.zoomed { touch-action: none; cursor: zoom-out; }
+.sheet-hero.zoomed .cap { opacity: 0; }
+.zoom-hint { display: none; }
+@media (pointer: coarse) { .zoom-hint { display: inline; } }
 .sheet-hero .cap { position: absolute; left: 12px; bottom: 10px; font-size: .68rem; background: rgb(0 0 0 / .6); color: #fff; padding: 3px 8px; border-radius: 999px; }
 .sheet-content { padding: 16px 18px 20px; display: grid; gap: 14px; }
 .sheet-content h2 { font-size: 1.12rem; line-height: 1.3; }
