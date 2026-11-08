@@ -875,7 +875,7 @@ function scoreDeals(deals) {
   }
 }
 
-const SORTS = { best: 'Best deals', price: 'Lowest price', az: 'A–Z' };
+const SORTS = { best: 'Best', price: 'Cheapest', az: 'A–Z' };
 const sortDeals = (rows, how) => [...rows].sort(
   how === 'price' ? (a, b) => (a.salePrice ?? Infinity) - (b.salePrice ?? Infinity)
   : how === 'az' ? (a, b) => a.item.localeCompare(b.item)
