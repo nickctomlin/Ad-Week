@@ -510,7 +510,7 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 /* While the item window is open only it scrolls, never the page behind it. */
 html:has(.sheet[open]) { overflow: hidden; }
-.sheet-inner { overscroll-behavior: contain; }
+.sheet-inner { overscroll-behavior: none; } /* no bounce: pulling down at the top drags the whole window instead */
 .sheet-inner { background: var(--surface); border-radius: 22px 22px 0 0; max-height: 92dvh; overflow: auto; box-shadow: var(--shadow-lg); padding-bottom: env(safe-area-inset-bottom); }
 @media (min-width: 640px) { .sheet { margin: auto; } .sheet-inner { border-radius: 22px; } }
 .sheet-grab { width: 40px; height: 5px; border-radius: 999px; background: var(--border-strong); margin: 8px auto 0; }

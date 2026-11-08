@@ -1436,6 +1436,48 @@ function enableZoom(box, img) {
   box.addEventListener('touchend', () => { if (pinch) reset(); });
   box.addEventListener('touchcancel', reset);
 }
+// Swipe down to close: when the window is scrolled to the top, pulling down drags the whole window with
+// your finger. Let go past a third of its height (or flick down) and it closes; otherwise it springs back.
+{
+  const dlg = $('#sheet');
+  const body = $('#sheet-body');
+  let drag = null;
+  const move = (y, animate) => {
+    dlg.style.transition = animate ? 'transform .22s ease' : 'none';
+    dlg.style.transform = y ? `translateY(${y}px)` : '';
+  };
+  body.addEventListener('touchstart', (e) => {
+    drag = e.touches.length === 1 && body.scrollTop <= 0
+      ? { y0: e.touches[0].clientY, x0: e.touches[0].clientX, dy: 0, t: Date.now(), active: false } : null;
+  }, { passive: true });
+  body.addEventListener('touchmove', (e) => {
+    if (!drag) return;
+    if (e.touches.length > 1 || body.querySelector('.sheet-hero.zoomed')) { drag = null; return move(0, true); } // a pinch, not a swipe
+    const dy = e.touches[0].clientY - drag.y0;
+    if (!drag.active) {
+      // Decide on the first real movement: down = drag the window; up or sideways = normal scrolling.
+      if (Math.abs(dy) < 6 && Math.abs(e.touches[0].clientX - drag.x0) < 6) return;
+      if (dy <= 0 || body.scrollTop > 0) { drag = null; return; }
+      drag.active = true;
+    }
+    e.preventDefault();
+    drag.dy = Math.max(0, dy);
+    move(drag.dy, false);
+  }, { passive: false });
+  const end = () => {
+    if (!drag?.active) { drag = null; return; }
+    const speed = drag.dy / Math.max(1, Date.now() - drag.t); // px per ms
+    const close = drag.dy > body.offsetHeight / 3 || (speed > 0.6 && drag.dy > 40);
+    drag = null;
+    if (!close) return move(0, true);
+    move(body.offsetHeight + 40, true);
+    setTimeout(() => dlg.close(), 200);
+  };
+  body.addEventListener('touchend', end);
+  body.addEventListener('touchcancel', end);
+  dlg.addEventListener('close', () => move(0, false));
+}
+
 // Dragging on the dimmed area around the item window shouldn't scroll the page behind it.
 $('#sheet').addEventListener('touchmove', (e) => { if (!e.target.closest('.sheet-inner')) e.preventDefault(); }, { passive: false });
 $('#sheet').addEventListener('click', (e) => {
