@@ -141,6 +141,8 @@ function route() {
   window.scrollTo({ top: 0 });
 }
 window.addEventListener('hashchange', route);
+// Older iPhones ignore the CSS above; block their pinch gesture directly.
+document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 function emptyState(icon, title, text, cta = `<a class="btn primary" href="#setup">Go to setup</a>`) {
   return `<div class="empty-state"><div class="icon">${ICON[icon]}</div><h2>${title}</h2><p>${text}</p>${cta}</div>`;

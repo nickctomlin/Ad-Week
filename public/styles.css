@@ -54,6 +54,8 @@
 /* No rubber-band / pull-to-refresh bounce past the ends of the page: on phones (especially the
    installed app) the bounce drags the fixed tab bar along with the content. */
 html, body { overscroll-behavior: none; }
+/* No pinch or double-tap zoom: it behaves like an app (Android follows the viewport tag; iPhones need this). */
+html { touch-action: pan-x pan-y; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; min-height: 100vh; background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
