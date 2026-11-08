@@ -1369,7 +1369,7 @@ function openSheet(x) {
   ].filter(Boolean);
   $('#sheet-body').innerHTML = `
     <button class="sheet-close" type="button" aria-label="Close" data-close>✕</button>
-    ${x.image ? `<div class="sheet-hero"><img src="${esc(x.image)}" alt="Ad for ${esc(x.title)}"/><span class="cap">${x.flyerItemId ? `From the ${esc(x.chainName || '')} weekly ad` : `Product photo from ${esc(x.chainName || 'the store')}`}<span class="zoom-hint"> · pinch to zoom</span></span></div>` : '<div class="sheet-grab"></div>'}
+    ${x.image ? `<div class="sheet-hero"><img src="${esc(x.image)}" alt="Ad for ${esc(x.title)}"/><span class="cap">${x.flyerItemId ? `From the ${esc(x.chainName || '')} weekly ad` : `Product photo from ${esc(x.chainName || 'the store')}`}</span></div>` : '<div class="sheet-grab"></div>'}
     <div class="sheet-content">
       <div>
         <span class="badge ${x.isSale ? 'sale' : ''}">${x.isSale ? 'On sale' : 'Regular price'}</span>

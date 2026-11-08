@@ -520,8 +520,6 @@ html:has(.sheet[open]) { overflow: hidden; }
 /* The picture can be pinch-zoomed inside its box; it springs back on release. */
 .sheet-hero { overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .sheet-hero.zoomed .cap { opacity: 0; }
-.zoom-hint { display: none; }
-@media (pointer: coarse) { .zoom-hint { display: inline; } }
 .sheet-hero .cap { position: absolute; left: 12px; bottom: 10px; font-size: .68rem; background: rgb(0 0 0 / .6); color: #fff; padding: 3px 8px; border-radius: 999px; }
 .sheet-content { padding: 16px 18px 20px; display: grid; gap: 14px; }
 .sheet-content h2 { font-size: 1.12rem; line-height: 1.3; }
