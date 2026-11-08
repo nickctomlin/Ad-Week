@@ -40,9 +40,9 @@ The Setup tab will then show Kroger stores from the official API, and plans will
 
 ## Using the app
 
-Five tabs: a bottom bar on phones, a top bar on desktop.
+Four tabs (Setup, Deals, List, Flyers): a bottom bar on phones, a top bar on desktop. The meal planner (Plan tab) is switched off for now; set `FEATURES.plan = true` in `public/app.js` to bring it back.
 
-- **Setup.** ZIP and radius, then pick stores. Each chain shows Live, Stale or No data, plus when it was updated and how long its ad is valid. Then set budget, people, dinners and diet.
+- **Setup.** ZIP and radius, then pick stores. Each chain shows Live, Stale or No data, plus when it was updated and how long its ad is valid.
 - **Plan.** Two styles, picked on Setup:
   - **Meal prep** (default): one recipe cooked as a single batch of people × dinners servings. For example, 4 people × 3 dinners = 12 servings.
   - **Variety**: a different recipe each night.
@@ -56,7 +56,20 @@ Five tabs: a bottom bar on phones, a top bar on desktop.
   - **Aisles have a back button.** Opening an aisle adds a history step (`#deals?aisle=meat`), so "← All aisles" or your phone's back gesture returns to the overview where you left it.
   - **Search** filters as you type with no lag: results redraw after a short pause, and only the results redraw.
   - **While ads are loading**, each store's deals appear as soon as that store finishes.
-  - **Savings ranking:** % off when the ad prints a regular price, free and BOGO offers, "Save $X" coupons, and dinner ingredients priced below the typical price at other nearby stores.
+  - **Watches** (`public/watch.js`, tested in `test/watch.test.js`). Tap **☆ Watch** in any item window. You can also add keywords in the **Watching** panel. A dinner ingredient ("chicken breast") matches at every store; anything else matches its keywords ("blue bell ice cream"). Watches can have a target price ("under $2.50/lb"). Matching deals appear first in "★ Your watched items on sale", with a ★ on their cards and a "★ Watched items" aisle. Watches are stored on the server, so every device shares them.
+  - **Price history** (`src/history.ts`, tested in `test/history.test.ts`). Every refresh records each item's price for that ad week (weeks start Wednesday) in `price_history`:
+    - The same item is matched across weeks by Kroger's product id, or by chain plus a normalized ad name.
+    - The item window shows a bar chart of recent weeks, "Usually $X · lowest $Y".
+    - Cards get a "↓ Lowest in N wks" tag when this week beats every earlier week *and* the usual price, so steady prices aren't flagged.
+    - On first start, history is seeded from earlier ads still in the HTTP cache.
+  - **Savings ranking** (`public/scoring.js`, tested in `test/scoring.test.js`): each deal gets an estimated % off *that item*, from the best evidence available:
+    1. Its own regular price, from the ad or Kroger's API. This is exact. Once an item has 3 or more past weeks of history, its own *usual* price counts too.
+    2. Coupon terms turned into a real percentage:
+       - "Buy 1 get 1 free" = 50%, "buy 2 get 1 free" = 33%, "buy 1 get 1 50% off" = 25%.
+       - "Save $X" is measured against the item's price and split across the "when you buy N" quantity. With no price to compare, it stays low.
+    3. For dinner ingredients priced per lb or per item, the price compared with the everyday price of an ordinary version: the 25th percentile of Kroger's regular shelf prices. These estimates are capped at 40%, so verified markdowns rank first.
+
+    Items are never compared with other, pricier products, so a cheap product isn't mistaken for a sale. "Best deals this week" shows the top 8 (score 20 or more, at most 2 per aisle and 3 per store), ties going to bigger dollar savings. The item window shows each deal's estimate and what it's based on.
   - **Coupon-style deals** with no single price ("Buy 2 get 1 free", "Save $2 with yellow coupon") show their terms instead of a price.
 - **Flyers.** Every current grocery weekly ad for your ZIP, page by page, as the actual ad clippings. A single compact toolbar row holds search, a Page drop-down that follows as you scroll, and a "Dinner only" toggle. Items already in your list are tagged.
 
@@ -64,6 +77,39 @@ Tap any item to open its **item window**. It shows the real ad clipping (with th
 - **Verify price.** Opens the item on flipp.com, or the product on kroger.com for Kroger API prices.
 - **The chain's own weekly ad.** For example kroger.com/weeklyad or tomthumb.com/weeklyad.
 - **Show it in the flyer.** Jumps to that ad page in the Flyers tab and highlights the item.
+
+## Run it on a server (Docker) and install it on your phone
+
+```bash
+git clone https://github.com/<you>/Ad-Week.git && cd Ad-Week
+cp .env.example .env            # add your Kroger keys
+docker compose up -d --build    # http://<server>:3000
+```
+
+**To update later:** run `git pull`, then `docker compose up -d --build`. Use a rebuild, not just a restart, because the code is baked into the image. Your deals, list, watches and price history live in the `adweek-data` volume and are kept. Compose only manages Ad Week's container, so other containers (e.g. Jellyfin) are untouched.
+
+**Install as an app.** Ad Week is a Progressive Web App:
+- `public/manifest.webmanifest` provides the home-screen icon.
+- `public/sw.js` lets it open and show your last-loaded deals, list and watches with no signal.
+
+Phones only allow installing on **HTTPS**. With Tailscale, run this once on the server:
+
+```bash
+tailscale serve --bg 3000       # serves https://<server-name>.<tailnet>.ts.net
+```
+
+Then open that https:// address on your phone:
+- **Android (Chrome):** tap **Install** on the Setup tab, or use the ⋮ menu → *Install app*.
+- **iPhone (Safari):** tap **Share** → *Add to Home Screen*.
+
+HTTPS also enables the List tab's **Copy** button, since browsers only allow clipboard access on secure pages.
+
+**Offline behavior:**
+- The app always tries the network first, so it shows fresh deals and new versions whenever you're online.
+- If you're offline, or the network takes more than 5 seconds, it shows the last copy saved on the device.
+- List and watch changes made offline are kept on the phone and synced as soon as you're back online. Unsynced edits win over the server's older copy.
+
+The icons are generated by `node scripts/make-icons.mjs`.
 
 ## Running ingestion
 

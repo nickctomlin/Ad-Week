@@ -7,15 +7,21 @@ import { db } from './db.ts';
 import { geocodeZip, UserError } from './geo.ts';
 import { findStores } from './stores.ts';
 import { startIngest, getJob, isStale, trackZip, refreshTracked } from './ingest.ts';
-import { buildOffers, chainStatuses, dealsForDisplay, makePlan } from './api.ts';
+import { buildOffers, chainStatuses, dealsForDisplay, everydayBaselines, makePlan } from './api.ts';
 import { HOUR } from './http.ts';
 import { listFlyers, getFlyerItems, type FlyerItem } from './sources/flipp.ts';
 import { CHAINS, CHAIN_BY_ID } from './sources/types.ts';
 import { DEPARTMENTS } from './departments.ts';
+import { seedHistoryFromCache } from './history.ts';
 
 const PUBLIC = join(config.root, 'public');
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.webmanifest': 'application/manifest+json',
+};
 const RADII = [5, 10, 15, 25];
+// Saved collections (rows in the `lists` table). 'default' is the shopping list's original id.
+const SAVED: Record<string, string> = { '/api/list': 'default', '/api/watches': 'watches' };
 
 function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -50,18 +56,22 @@ function jobView(zip: string) {
 async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   const zip = url.searchParams.get('zip') || '';
   switch (`${req.method} ${url.pathname}`) {
-    case 'GET /api/list': {
-      const row = db.prepare("SELECT body, updated_at FROM lists WHERE id = 'default'").get() as { body: string; updated_at: number } | undefined;
+    // Your shopping list and your watches, stored server-side so every device shares them.
+    case 'GET /api/list':
+    case 'GET /api/watches': {
+      const id = SAVED[url.pathname];
+      const row = db.prepare('SELECT body, updated_at FROM lists WHERE id = ?').get(id) as { body: string; updated_at: number } | undefined;
       return send(res, 200, { items: row ? JSON.parse(row.body) : [], updatedAt: row?.updated_at ?? null });
     }
 
-    case 'PUT /api/list': {
+    case 'PUT /api/list':
+    case 'PUT /api/watches': {
       const body = await readBody(req);
-      if (!Array.isArray(body.items) || body.items.length > 1000) throw new UserError('List must be an array of up to 1000 items.');
+      if (!Array.isArray(body.items) || body.items.length > 1000) throw new UserError('Expected an array of up to 1000 items.');
       const json = JSON.stringify(body.items);
-      if (json.length > 2_000_000) throw new UserError('List is too large to save.');
+      if (json.length > 2_000_000) throw new UserError('Too large to save.');
       const now = Date.now();
-      db.prepare("INSERT OR REPLACE INTO lists (id, body, updated_at) VALUES ('default', ?, ?)").run(json, now);
+      db.prepare('INSERT OR REPLACE INTO lists (id, body, updated_at) VALUES (?, ?, ?)').run(SAVED[url.pathname], json, now);
       return send(res, 200, { updatedAt: now });
     }
 
@@ -95,7 +105,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       const radius = parseRadius(url.searchParams.get('radius'));
       const ids = (url.searchParams.get('stores') || '').split(',').filter(Boolean);
       const { selected } = await context(zip, radius, ids);
-      return send(res, 200, { deals: dealsForDisplay(zip, selected), departments: DEPARTMENTS });
+      return send(res, 200, { deals: dealsForDisplay(zip, selected), departments: DEPARTMENTS, baselines: everydayBaselines(zip, selected) });
     }
 
     case 'GET /api/flyers': {
@@ -151,7 +161,9 @@ async function serveStatic(res: ServerResponse, pathname: string) {
   if (!file.startsWith(PUBLIC)) return send(res, 403, { error: 'Forbidden' });
   try {
     const body = await readFile(file);
-    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
+    // no-cache = "check with the server each time" (cheap revalidation), so app updates and the
+    // service worker itself are picked up as soon as you're online.
+    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(body);
   } catch {
     send(res, 404, { error: 'Not found' });
@@ -173,6 +185,8 @@ const server = createServer(async (req, res) => {
 server.listen(config.port, () => {
   console.log(`Ad Week running at http://localhost:${config.port}`);
   console.log(`Kroger API: ${hasKroger() ? 'configured' : 'not configured (flyer data only)'} · Claude recipes: ${hasAnthropic() ? config.anthropicModel : 'not configured (built-in recipes)'}`);
+  const seeded = seedHistoryFromCache();
+  if (seeded) console.log(`Price history: seeded ${seeded} prices from cached ads`);
 });
 
 // Scheduled ingestion: every 6 hours, refresh any recently used ZIP whose data is stale.

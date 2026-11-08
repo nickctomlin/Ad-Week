@@ -6,6 +6,7 @@ import { CHAINS, CHAIN_BY_ID, type ChainId, type Deal } from './sources/types.ts
 import type { StoreWithDistance } from './stores.ts';
 import { CANONICAL_BY_KEY } from './normalize.ts';
 import { DEPARTMENTS, deptLabel } from './departments.ts';
+import { historyKey, historyFor, adWeek } from './history.ts';
 import { buildList, buildOneStoreList, choosePlan, swapMeal, mealCosts, unpriced, portionRecipe, type Offer, type ShoppingList } from './planner.ts';
 import { getRecipePool, type AvailableItem, type Diet, type Recipe } from './recipes.ts';
 import { UserError } from './geo.ts';
@@ -108,6 +109,27 @@ const DEPT_ORDER = DEPARTMENTS.map((d) => d.id as string);
  * Deals tab: every advertised grocery item at the selected stores (not just dinner ingredients),
  * one entry per ad item, shown at the nearest selected store of its chain.
  */
+/**
+ * Everyday prices per dinner ingredient, for judging flyer deals that don't print a regular price:
+ * the 25th percentile of Kroger's *regular* (non-sale) unit prices at the selected stores, i.e. what an
+ * ordinary, inexpensive version normally costs. Keyed by `${canonical}|${unit}`; needs 3+ products.
+ */
+export function everydayBaselines(zip: string, stores: StoreWithDistance[]): Record<string, number> {
+  const groups: Record<string, number[]> = {};
+  for (const d of currentDeals(zip, stores.map((s) => s.id))) {
+    if (d.source !== 'kroger-api' || !d.canonical || d.regular_price == null || d.sale_price == null || d.unit_price == null || d.size_estimated) continue;
+    const regularUnit = d.unit_price * (d.regular_price / d.sale_price); // unit price at the regular price
+    (groups[`${d.canonical}|${d.unit_price_unit}`] ??= []).push(regularUnit);
+  }
+  const out: Record<string, number> = {};
+  for (const [key, xs] of Object.entries(groups)) {
+    if (xs.length < 3) continue;
+    xs.sort((a, b) => a - b);
+    out[key] = Math.round(xs[Math.floor((xs.length - 1) * 0.25)] * 100) / 100;
+  }
+  return out;
+}
+
 export function dealsForDisplay(zip: string, stores: StoreWithDistance[]) {
   const rows = currentDeals(zip, stores.map((s) => s.id)).filter((d) => d.is_sale);
   const byChain = storesByChain(stores);
@@ -146,9 +168,27 @@ export function dealsForDisplay(zip: string, stores: StoreWithDistance[]) {
       unitPrice: rep.unit_price, unitPriceUnit: rep.unit_price_unit,
       sizeEstimated: !!rep.size_estimated, limit: rep.limit_qty, validTo: rep.valid_to,
       ...verifyFields(rep.chain, { imageUrl: rep.image_url, sourceUrl: rep.source_url, flyerId: rep.flyer_id, flyerItemId: rep.flyer_item_id, note: rep.note }),
+      historyKey: historyKey(rep),
+      history: null as ReturnType<typeof summarizeHistory>,
     });
   }
+  // Attach each item's price history (past ad weeks only count toward "usual" and "lowest").
+  const hist = historyFor(out.map((d) => d.historyKey));
+  for (const d of out) d.history = summarizeHistory(hist.get(d.historyKey));
   return out.sort((a, b) => DEPT_ORDER.indexOf(a.dept) - DEPT_ORDER.indexOf(b.dept) || a.item.localeCompare(b.item));
+}
+
+/** Weeks seen, plus the lowest and median price from *previous* ad weeks. */
+export function summarizeHistory(weeks: [string, number][] | undefined) {
+  if (!weeks?.length) return null;
+  const current = adWeek(new Date());
+  const prior = weeks.filter(([w]) => w < current).map(([, p]) => p).sort((a, b) => a - b);
+  return {
+    weeks,
+    priorWeeks: prior.length,
+    low: prior.length ? prior[0] : null,
+    usual: prior.length ? prior[Math.floor(prior.length / 2)] : null,
+  };
 }
 
 function availableItems(offers: Offer[]): AvailableItem[] {

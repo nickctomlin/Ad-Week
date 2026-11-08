@@ -397,6 +397,50 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
   .selects { grid-template-columns: repeat(3, 170px); }
   .active-filters { grid-column: 1 / -1; }
 }
+.deal-value { display: flex; flex-direction: column; gap: 2px; background: var(--accent-soft); border-radius: 10px; padding: 9px 12px; }
+.deal-value b { color: var(--accent); font-size: .95rem; }
+.deal-value span { font-size: .8rem; color: var(--text-2); }
+/* Installable app */
+.offline-note { position: sticky; top: 58px; z-index: 19; text-align: center; font-size: .8rem; font-weight: 650; padding: 6px 12px; background: var(--warn-soft); color: var(--warn); border-bottom: 1px solid var(--border); }
+.install-row { display: flex; align-items: center; gap: 12px; }
+.install-row > div { flex: 1; min-width: 0; }
+.install-row img { border-radius: 10px; flex: none; }
+.install-row svg { width: 22px; height: 22px; flex: none; color: var(--muted); }
+.install-row p { margin: 2px 0 0; }
+.install-row code { font-size: .78rem; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+/* Installed app: respect the phone's notch/status bar */
+@media (display-mode: standalone) { .appbar { padding-top: max(12px, env(safe-area-inset-top)); } }
+
+/* Watches */
+.star { color: #e0a100; font-size: .85rem; }
+.low-tag { color: var(--accent); font-weight: 650; }
+.watch-sec { background: linear-gradient(180deg, color-mix(in srgb, #e0a100 14%, transparent), transparent 85%); border-radius: var(--radius-lg); padding: 12px; margin-left: -4px; margin-right: -4px; }
+.watch-hint { background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 10px 12px; font-size: .84rem; color: var(--text-2); margin-bottom: 18px; }
+.watch-toggle { justify-content: space-between; }
+.watch-toggle.on { border-color: #e0a100; }
+.watch-add { display: flex; gap: 8px; }
+.watch-add input { min-height: 42px; }
+.watch-list { display: grid; gap: 2px; }
+.watch-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--border); }
+.watch-row:first-child { border-top: 0; }
+.watch-row .w-main { flex: 1; min-width: 0; }
+.watch-row .w-main b { display: block; font-size: .92rem; }
+.watch-row .w-main small { color: var(--muted); font-size: .76rem; }
+.watch-row .w-main .on { color: var(--accent); font-weight: 650; }
+.w-target { flex-direction: row; align-items: center; gap: 2px; font-size: .8rem; color: var(--text-2); white-space: nowrap; }
+.w-target input { width: 70px; min-height: 34px; padding: 4px 6px; font-size: .86rem; }
+
+/* Price history chart (item window) */
+.hist { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.hist p { margin: 4px 0 0; }
+.hist-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.hist-head .good { color: var(--accent); font-weight: 700; }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 110px; margin-top: 8px; }
+.bar-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; }
+.bar { width: 100%; max-width: 36px; background: var(--surface-3); border-radius: 6px 6px 2px 2px; }
+.bar.now { background: var(--accent); }
+.bar-val { font-size: .64rem; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar-wk { font-size: .62rem; color: var(--muted); white-space: nowrap; }
 .promo-big { font-size: 1.05rem; font-weight: 750; color: var(--sale); background: var(--sale-soft); border-radius: 12px; padding: 12px 14px; line-height: 1.35; }
 
 /* ---------- Flyers ---------- */

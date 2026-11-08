@@ -106,6 +106,24 @@ CREATE TABLE IF NOT EXISTS lists (
   updated_at INTEGER NOT NULL
 );
 
+-- One price per item per ad week, kept across weeks (deals themselves are replaced each refresh).
+-- week = the Wednesday the ad week starts (DFW ads run Wed–Tue). item_key identifies the same item
+-- across weeks (see src/history.ts). For Kroger shelf prices at several stores, the lowest is kept.
+CREATE TABLE IF NOT EXISTS price_history (
+  week TEXT NOT NULL,
+  item_key TEXT NOT NULL,
+  chain TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  canonical TEXT,
+  price REAL NOT NULL,          -- price per sold unit (per lb if sold by weight)
+  regular_price REAL,
+  unit_price REAL,
+  unit TEXT,
+  is_sale INTEGER NOT NULL,
+  PRIMARY KEY (week, item_key)
+);
+CREATE INDEX IF NOT EXISTS price_history_key ON price_history(item_key);
+
 CREATE TABLE IF NOT EXISTS tracked_zips (
   zip TEXT PRIMARY KEY,
   last_requested INTEGER NOT NULL

@@ -9,6 +9,7 @@ import { listFlyers, fetchFlyerDeals } from './sources/flipp.ts';
 import { fetchKrogerPrices } from './sources/kroger.ts';
 import { CHAINS, type ChainId, type Deal } from './sources/types.ts';
 import { HOUR } from './http.ts';
+import { recordHistory } from './history.ts';
 
 export type Job = { zip: string; running: boolean; log: string[]; startedAt: number; finishedAt?: number; error?: string };
 const jobs = new Map<string, Job>();
@@ -98,6 +99,7 @@ async function ingestFlyers(zip: string, opts: { force?: boolean }, log: (m: str
       db.prepare("DELETE FROM deals WHERE source = 'flipp' AND zone = ? AND chain = ?").run(zip, chain.id);
       saveDeals(deals);
       db.exec('COMMIT');
+      recordHistory(deals);
       const validTo = mine.map((f) => f.valid_to).sort()[0];
       endRun(runId, deals.length ? 'ok' : 'empty', deals.length ? `${mine.length} flyer(s)` : 'Flyer had no matching grocery items.', deals.length, validTo);
       log(`${chain.name}: saved ${deals.length} normalized deals`);
@@ -126,6 +128,7 @@ async function ingestKroger(place: Awaited<ReturnType<typeof geocodeZip>>, opts:
       db.prepare("DELETE FROM deals WHERE source = 'kroger-api' AND store_id = ?").run(s.id);
       saveDeals(deals);
       db.exec('COMMIT');
+      recordHistory(deals);
       endRun(runId, deals.length ? 'ok' : 'empty', `${s.name}: ${deals.filter((d) => d.is_sale).length} on sale, ${deals.length} prices`, deals.length);
       log(`Kroger API ${s.name}: ${deals.length} prices (${deals.filter((d) => d.is_sale).length} on promo)`);
     } catch (e: any) {

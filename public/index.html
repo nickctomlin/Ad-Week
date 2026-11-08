@@ -6,7 +6,14 @@
   <title>Ad Week</title>
   <meta name="description" content="Cheap weekly dinner plans from this week's real DFW grocery sales." />
   <meta name="theme-color" content="#1f7a4d" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%231f7a4d'/><text x='50' y='68' font-size='56' text-anchor='middle' fill='white' font-family='system-ui' font-weight='800'>A</text></svg>" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <!-- Installable app: manifest (Android/desktop) + Apple home-screen tags -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Ad Week" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -21,6 +28,7 @@
     <button id="theme" class="icon-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
   </header>
 
+  <div id="offline-note" class="offline-note hidden" role="status">You're offline — showing your saved deals and list</div>
   <main id="app">
     <!-- SETUP -->
     <section class="view" data-view="setup" aria-labelledby="h-setup">
@@ -96,6 +104,9 @@
         </form>
         <p id="plan-msg" class="msg" role="status"></p>
       </div>
+
+      <!-- Shown when this device can install Ad Week as an app (filled in by app.js) -->
+      <div class="panel install-panel hidden" id="install-panel"></div>
     </section>
 
     <!-- PLAN -->

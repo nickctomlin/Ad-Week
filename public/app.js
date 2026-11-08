@@ -1,4 +1,7 @@
 // Ad Week frontend. Hash-routed tabs: #setup, #plan, #list, #deals, #flyers[/<id>?item=<id>]
+import { scoreDeal, dollarsSaved, lowestLabel } from './scoring.js';
+import { matchesWatch, suggestWatch, watchKey } from './watch.js';
+
 // ---------- utilities ----------
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -498,16 +501,24 @@ const LIST_KEY = 'adweek:list';
 let myList = ls.get(LIST_KEY, []);
 let listSaveTimer;
 
+// Changes made while offline are flagged "dirty" (remembered across app restarts). While dirty, this
+// device's copy wins: it's pushed when the connection is back instead of being replaced by the server's.
+const isDirty = (key) => ls.get(`${key}:dirty`, false);
+const setDirty = (key, v) => ls.set(`${key}:dirty`, v);
+
 async function pushList() {
   try {
     await api('/api/list', { method: 'PUT', body: JSON.stringify({ items: myList }) });
+    setDirty(LIST_KEY, false);
   } catch {
-    toast("Couldn't reach the server — list saved on this device only");
+    if (!isDirty(LIST_KEY)) toast("You're offline — your list will sync when you're back online");
+    setDirty(LIST_KEY, true);
   }
 }
 
 /** Load the server's list. If the server has none yet, upload this device's list (first run). */
 async function pullList() {
+  if (isDirty(LIST_KEY)) return pushList(); // unsynced edits from offline win
   try {
     const r = await api('/api/list');
     if (r.updatedAt == null && myList.length) return pushList();
@@ -521,7 +532,7 @@ async function pullList() {
   }
 }
 // Pick up changes made on another device when you come back to this tab.
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullList(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullList(); pullWatches(); } });
 
 // Used by the (currently hidden) meal planner's item windows.
 function lineQty(ln, unit) {
@@ -676,6 +687,105 @@ $('#list-view').addEventListener('change', (e) => {
   saveList();
 });
 
+// ---------- watches ----------
+// Things you want to know about when they're on sale (see watch.js). Stored on the server like the
+// list, so every device shares them; this browser keeps a copy.
+const WATCH_KEY = 'adweek:watches';
+let myWatches = ls.get(WATCH_KEY, []);
+let watchSaveTimer;
+
+async function pushWatches() {
+  try {
+    await api('/api/watches', { method: 'PUT', body: JSON.stringify({ items: myWatches }) });
+    setDirty(WATCH_KEY, false);
+  } catch {
+    if (!isDirty(WATCH_KEY)) toast("You're offline — your watches will sync when you're back online");
+    setDirty(WATCH_KEY, true);
+  }
+}
+
+async function pullWatches() {
+  if (isDirty(WATCH_KEY)) return pushWatches(); // unsynced edits from offline win
+  try {
+    const r = await api('/api/watches');
+    if (r.updatedAt == null) { if (myWatches.length) pushWatches(); return; }
+    myWatches = r.items;
+    ls.set(WATCH_KEY, myWatches);
+    if (parseHash().view === 'deals' && state.dealsKey) renderDeals();
+  } catch {
+    // Offline: keep this device's copy.
+  }
+}
+
+function saveWatches() {
+  ls.set(WATCH_KEY, myWatches);
+  clearTimeout(watchSaveTimer);
+  watchSaveTimer = setTimeout(pushWatches, 400);
+}
+
+const findWatch = (w) => myWatches.find((x) => watchKey(x) === watchKey(w));
+const isWatched = (d) => myWatches.some((w) => matchesWatch(d, w));
+
+/** Start or stop watching the item shown in an item window (its ingredient, or keywords from its name). */
+function toggleWatch(x) {
+  const suggestion = suggestWatch(x);
+  const existing = findWatch(suggestion);
+  if (existing) {
+    myWatches = myWatches.filter((w) => w !== existing);
+    toast(`Stopped watching ${existing.label}`);
+  } else {
+    myWatches.push({ id: `w${Date.now().toString(36)}`, ...suggestion, maxPrice: null, createdAt: Date.now() });
+    toast(`Watching ${suggestion.label}`);
+  }
+  saveWatches();
+}
+
+/** The Watching panel: see what's on sale for each watch, set price targets, add keywords, remove. */
+function openWatchesSheet() {
+  state.sheetItem = null;
+  const unitLabel = (w) => (w.unit === 'lb' ? '/lb' : w.unit === 'each' ? ' each' : '');
+  const rows = myWatches.map((w) => {
+    const onSale = state.deals.filter((d) => matchesWatch(d, w)).length;
+    return `<div class="watch-row">
+      <div class="w-main"><b>${esc(w.label)}</b><small>${onSale ? `<span class="on">${onSale} on sale now</span>` : 'Not on sale this week'} · ${w.canonical ? 'any store' : 'keywords'}</small></div>
+      <label class="w-target" title="Only show it when the price is at or below this">Under $<input type="number" min="0" step="0.01" inputmode="decimal" placeholder="any" value="${w.maxPrice ?? ''}" data-watch-target="${esc(w.id)}"/>${unitLabel(w)}</label>
+      <button class="remove" type="button" data-watch-remove="${esc(w.id)}" aria-label="Stop watching ${esc(w.label)}">✕</button>
+    </div>`;
+  }).join('');
+  $('#sheet-body').innerHTML = `
+    <button class="sheet-close" type="button" aria-label="Close" data-close>✕</button>
+    <div class="sheet-grab"></div>
+    <div class="sheet-content">
+      <div><h2 id="sheet-title">★ Watching</h2><p class="muted small" style="margin:4px 0 0">These show at the top of Deals whenever they're on sale. Add a target price to only see them at or below it.</p></div>
+      <form class="watch-add" data-watch-add><input name="q" type="text" placeholder="Add keywords, e.g. ribeye or blue bell" aria-label="Keywords to watch" autocomplete="off"/><button class="btn primary sm" type="submit">Watch</button></form>
+      <div class="watch-list">${rows || '<p class="muted">Nothing watched yet. Open any deal and tap ☆ Watch, or add keywords above.</p>'}</div>
+    </div>`;
+  const dlg = $('#sheet');
+  if (!dlg.open) dlg.showModal();
+}
+
+$('#sheet-body').addEventListener('submit', (e) => {
+  if (!e.target.matches('[data-watch-add]')) return;
+  e.preventDefault();
+  const q = e.target.q.value.trim();
+  if (!q) return;
+  const w = { label: q, query: q.toLowerCase() };
+  if (!findWatch(w)) myWatches.push({ id: `w${Date.now().toString(36)}`, ...w, maxPrice: null, createdAt: Date.now() });
+  saveWatches();
+  openWatchesSheet();
+  if (parseHash().view === 'deals' && state.dealsKey) renderDeals();
+});
+$('#sheet-body').addEventListener('change', (e) => {
+  const id = e.target.dataset.watchTarget;
+  const w = id && myWatches.find((x) => x.id === id);
+  if (!w) return;
+  const v = parseFloat(e.target.value);
+  w.maxPrice = Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : null;
+  saveWatches();
+  openWatchesSheet();
+  if (parseHash().view === 'deals' && state.dealsKey) renderDeals();
+});
+
 // ---------- deals ----------
 /**
  * Fetch deals for the selected stores. Runs while this week's ads are still loading too, so each store's
@@ -693,6 +803,8 @@ async function loadDeals(force = false) {
     for (const d of r.deals) d._s = `${d.item} ${d.deptLabel} ${d.canonicals.join(' ')} ${d.chainName}`.toLowerCase();
     state.deals = r.deals;
     state.departments = r.departments;
+    state.baselines = r.baselines || {};
+    scoreDeals(r.deals);
     state.dealsKey = key;
   } catch (err) {
     toast(err.message);
@@ -740,7 +852,7 @@ function dealCard(d) {
     <div class="d-img">${d.imageUrl ? `<img src="${esc(d.imageUrl)}" alt="" loading="lazy"/>` : ''}</div>
     <div class="d-main">
       <span class="d-name">${esc(d.item)}</span>
-      <span class="d-store"><span class="chain-dot" style="--chain:${d.chainColor}"></span>${esc(d.chainName)} · ${d.store.distance} mi</span>
+      <span class="d-store"><span class="chain-dot" style="--chain:${d.chainColor}"></span>${esc(d.chainName)} · ${d.store.distance} mi${myWatches.length && isWatched(d) ? ' <span class="star" title="On your watch list">★</span>' : ''}${(() => { const low = lowestLabel(d); return low ? ` · <span class="low-tag">↓ ${esc(low.replace('weeks', 'wks'))}</span>` : ''; })()}</span>
       <div class="d-foot">${dealPrice(d)}${addBtn(d.dealId)}</div>
     </div>
   </div>`;
@@ -754,25 +866,11 @@ function paintAddBtn(btn, id) {
   btn.setAttribute('aria-label', on ? 'Remove from list' : 'Add to list');
 }
 
-// How good a deal is, 0–100, from what the ad actually says. Used for "Best deals" and sorting.
-// Percent off (when a regular price is printed), free/BOGO offers, "save $X" coupons, and for dinner
-// ingredients how far the price is below the typical price of the same item at other nearby stores.
+// Each deal's score is an estimated % off that item (see scoring.js for how it's measured).
 function scoreDeals(deals) {
-  const unitPrices = {};
-  for (const d of deals) if (d.canonical && d.unitPrice != null && d.unitPriceUnit) (unitPrices[`${d.canonical}|${d.unitPriceUnit}`] ??= []).push(d.unitPrice);
-  const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
   for (const d of deals) {
-    const text = `${d.promoText || ''} ${d.note || ''}`.toLowerCase();
-    let s = d.percentOff || 0;
-    if (/buy (one|1|two|2|three|3)?.{0,40}get.{0,40}free/.test(text) || /bogo free/.test(text)) s = Math.max(s, 50);
-    else if (/buy (one|1).{0,20}get (one|1).{0,10}50% off/.test(text)) s = Math.max(s, 25);
-    const pct = text.match(/(\d{1,2})% off/);
-    if (pct && !/get (one|1).{0,10}\d+% off/.test(text)) s = Math.max(s, Number(pct[1]));
-    const save = text.match(/save (?:up to )?\$(\d+(?:\.\d+)?)/);
-    if (save) s = Math.max(s, Math.min(40, 10 + Number(save[1]) * 5));
-    const peers = d.canonical ? unitPrices[`${d.canonical}|${d.unitPriceUnit}`] : null;
-    if (peers && peers.length >= 3 && d.unitPrice != null) s = Math.max(s, Math.min(60, Math.round((1 - d.unitPrice / median(peers)) * 100)));
-    d.score = Math.max(0, s);
+    Object.assign(d, scoreDeal(d, state.baselines));
+    d.saved = dollarsSaved(d);
   }
 }
 
@@ -780,7 +878,7 @@ const SORTS = { best: 'Best deals', price: 'Lowest price', az: 'A–Z' };
 const sortDeals = (rows, how) => [...rows].sort(
   how === 'price' ? (a, b) => (a.salePrice ?? Infinity) - (b.salePrice ?? Infinity)
   : how === 'az' ? (a, b) => a.item.localeCompare(b.item)
-  : (a, b) => b.score - a.score || (a.salePrice ?? Infinity) - (b.salePrice ?? Infinity));
+  : (a, b) => b.score - a.score || b.saved - a.saved || (a.salePrice ?? Infinity) - (b.salePrice ?? Infinity));
 
 // ---------- deals navigation ----------
 // The open aisle lives in the URL (#deals?aisle=meat) so the on-screen back button and the phone's back
@@ -833,16 +931,19 @@ function dealsModel() {
   const q = state.dealQ.trim().toLowerCase();
   const inChain = state.dealChains.length ? state.deals.filter((d) => state.dealChains.includes(d.chainName)) : state.deals;
   const matchesQ = (d) => !q || d._s.includes(q);
-  const inAisle = (d) => !state.dealCat || (state.dealCat === 'dinner' ? d.canonicals.length > 0 : d.dept === state.dealCat);
+  const inAisle = (d) => !state.dealCat
+    || (state.dealCat === 'dinner' ? d.canonicals.length > 0 : state.dealCat === 'watched' ? isWatched(d) : d.dept === state.dealCat);
   const rows = inChain.filter((d) => inAisle(d) && matchesQ(d));
   const depts = (state.departments || []).filter((dep) => inChain.some((d) => d.dept === dep.id));
-  const aisleLabel = state.dealCat === 'dinner' ? 'Dinner ingredients' : (state.departments || []).find((d) => d.id === state.dealCat)?.label;
+  const aisleLabel = state.dealCat === 'dinner' ? 'Dinner ingredients' : state.dealCat === 'watched' ? '★ Watched items'
+    : (state.departments || []).find((d) => d.id === state.dealCat)?.label;
   return { chains, q, inChain, matchesQ, rows, depts, aisleLabel, browsing: !q && !state.dealCat };
 }
 
 function aisleOptions(m) {
   const n = (pred) => m.inChain.filter((d) => pred(d) && m.matchesQ(d)).length;
   return `<option value="">All aisles (${n(() => true)})</option>
+    ${myWatches.length ? `<option value="watched" ${state.dealCat === 'watched' ? 'selected' : ''}>★ Watched items (${n(isWatched)})</option>` : ''}
     <option value="dinner" ${state.dealCat === 'dinner' ? 'selected' : ''}>Dinner ingredients (${n((d) => d.canonicals.length > 0)})</option>
     ${m.depts.map((dep) => `<option value="${dep.id}" ${state.dealCat === dep.id ? 'selected' : ''}>${esc(dep.label)} (${n((d) => d.dept === dep.id)})</option>`).join('')}`;
 }
@@ -858,7 +959,6 @@ function renderDeals() {
     el.innerHTML = `<div class="view-head"><h1 id="h-deals">Deals</h1></div>${loadingNote()}<div class="cards">${'<div class="skel" style="height:110px"></div>'.repeat(6)}</div>`;
     return;
   }
-  if (state.deals.length && state.deals[0].score == null) scoreDeals(state.deals);
   const m = dealsModel();
   el.innerHTML = `
     ${state.dealCat ? '' : `<div class="view-head"><h1 id="h-deals">This week's deals</h1><p class="lede">${state.deals.length} grocery deals at your ${state.selected.size} stores. Tap any deal to see the original ad.</p></div>`}
@@ -906,11 +1006,15 @@ function renderDealsBody(m = dealsModel()) {
       ? `<button class="btn secondary full show-more" data-more type="button">Show ${Math.min(PAGE_SIZE, sorted.length - shown.length)} more of ${sorted.length - shown.length}</button>` : ''}`;
   } else {
     // Curated overview: the week's standouts (max 2 per aisle), then the best few per aisle.
+    // At most 2 per aisle and 3 per store, so one chain with richer price data can't fill the list.
     const best = [];
     const perDept = {};
+    const perChain = {};
     for (const d of sortDeals(rows, 'best')) {
       if (best.length >= 8 || d.score < 20) break;
-      if ((perDept[d.dept] = (perDept[d.dept] || 0) + 1) > 2) continue;
+      if ((perDept[d.dept] ?? 0) >= 2 || (perChain[d.chain] ?? 0) >= 3) continue;
+      perDept[d.dept] = (perDept[d.dept] ?? 0) + 1;
+      perChain[d.chain] = (perChain[d.chain] ?? 0) + 1;
       best.push(d);
     }
     const sections = m.depts.map((dep) => {
@@ -922,7 +1026,16 @@ function renderDealsBody(m = dealsModel()) {
           <button class="btn ghost sm" data-aisle="${dep.id}">See all ${all.length} →</button></div>
         <div class="cards">${top.map(dealCard).join('')}</div></section>`;
     }).join('');
-    html = `${best.length ? `<section class="dept-sec highlight-sec"><div class="dept-head"><h2 class="dept-title">⭐ Best deals this week</h2></div><div class="cards">${best.map(dealCard).join('')}</div></section>` : ''}${sections}`;
+    // Your watched items come first: everything on your watch list that's on sale this week.
+    const watched = myWatches.length ? sortDeals(rows.filter(isWatched), 'best') : [];
+    const watchedHtml = !myWatches.length
+      ? `<div class="watch-hint">☆ Open any deal and tap <b>Watch</b> to see it here first whenever it's on sale. <button class="link-clear" data-watching type="button">Add keywords</button></div>`
+      : watched.length
+        ? `<section class="dept-sec watch-sec"><div class="dept-head"><h2 class="dept-title">★ Your watched items on sale <span class="muted small">${watched.length}</span></h2>
+            <span class="head-actions"><button class="btn ghost sm" data-watching type="button">Manage</button>${watched.length > 4 ? `<button class="btn ghost sm" data-aisle="watched" type="button">See all →</button>` : ''}</span></div>
+            <div class="cards">${watched.slice(0, 4).map(dealCard).join('')}</div></section>`
+        : `<div class="watch-hint">None of your ${myWatches.length} watched item${myWatches.length === 1 ? ' is' : 's are'} on sale this week. <button class="link-clear" data-watching type="button">Manage</button></div>`;
+    html = `${watchedHtml}${best.length ? `<section class="dept-sec highlight-sec"><div class="dept-head"><h2 class="dept-title">⭐ Best deals this week</h2></div><div class="cards">${best.map(dealCard).join('')}</div></section>` : ''}${sections}`;
   }
   body.innerHTML = html;
 
@@ -956,6 +1069,7 @@ $('#deals-view').addEventListener('change', (e) => {
 
 $('#deals-view').addEventListener('click', (e) => {
   if (e.target.closest('[data-store-done]')) { state.storeMenuOpen = false; $('#store-menu').open = false; return; }
+  if (e.target.closest('[data-watching]')) return openWatchesSheet();
   const aisle = e.target.closest('[data-aisle]');
   if (aisle) return openAisle(aisle.dataset.aisle);
   if (e.target.closest('[data-more]')) { state.dealLimit += PAGE_SIZE; return renderDealsBody(); }
@@ -1130,7 +1244,7 @@ function fromDeal(d) {
     price: d.salePrice, priceUnit: d.priceUnit, regular: d.regularPrice, percentOff: d.percentOff, unitPrice: d.unitPrice, unitPriceUnit: d.unitPriceUnit,
     limit: d.limit, validTo: d.validTo, sizeEstimated: d.sizeEstimated, note: d.note, sourceUrl: d.sourceUrl, sourceLabel: d.sourceLabel,
     weeklyAdUrl: d.weeklyAdUrl, flyerId: d.flyerId, flyerItemId: d.flyerItemId, isSale: true,
-    promo: d.promoText, dept: d.deptLabel, canonicals: d.canonicals, listId: d.dealId,
+    promo: d.promoText, dept: d.deptLabel, canonicals: d.canonicals, listId: d.dealId, score: d.score, basis: d.basis, history: d.history,
   };
 }
 function fromLine(p, ln) {
@@ -1157,6 +1271,36 @@ function fromFlyerItem(it, flyer) {
   };
 }
 
+/** ☆ Watch / ★ Watching button for the item window (watches the ingredient, or keywords from the name). */
+function watchButton(x) {
+  if (!x.title) return '';
+  const s = suggestWatch(x);
+  return findWatch(s)
+    ? `<button class="btn secondary watch-toggle on" type="button" data-watch-toggle><span>★ Watching ${esc(s.label)}</span><span class="muted small">Stop</span></button>`
+    : `<button class="btn secondary watch-toggle" type="button" data-watch-toggle><span>☆ Watch ${esc(s.label)}</span><span class="muted small">See it first when on sale</span></button>`;
+}
+
+/** Small bar chart of this item's price over past ad weeks, with a one-line summary. */
+function historyBlock(x) {
+  if (x.price == null) return '';
+  const h = x.history;
+  if (!h || h.weeks.length < 2) {
+    return `<div class="hist"><b>Price history</b><p class="muted small">First week we've seen this item here. Its price history builds each week.</p></div>`;
+  }
+  const pts = h.weeks.slice(-10);
+  const max = Math.max(...pts.map(([, p]) => p));
+  const low = lowestLabel({ salePrice: x.price, history: h });
+  const summary = low ? `<span class="good">↓ ${esc(low)}</span>`
+    : h.priorWeeks ? `Usually ${money(h.usual)} · lowest ${money(h.low)} over ${h.priorWeeks} past week${h.priorWeeks === 1 ? '' : 's'}` : '';
+  return `<div class="hist">
+    <div class="hist-head"><b>Price history</b><span class="small">${summary}</span></div>
+    <div class="bars">${pts.map(([w, p], i) => `<div class="bar-col" title="Week of ${fmtShort(w)}: ${money(p)}">
+      <span class="bar-val">${money(p)}</span>
+      <div class="bar ${i === pts.length - 1 ? 'now' : ''}" style="height:${Math.max(10, Math.round((p / max) * 100))}%"></div>
+      <span class="bar-wk">${i === pts.length - 1 ? 'This wk' : fmtShort(w)}</span></div>`).join('')}</div>
+  </div>`;
+}
+
 function openSheet(x) {
   const pctOff = x.percentOff ?? (x.regular && x.price ? Math.round((1 - x.price / x.regular) * 100) : null);
   const facts = [
@@ -1164,13 +1308,13 @@ function openSheet(x) {
     x.unitPrice != null ? ['Unit price', `${money(x.unitPrice)}/${x.unitPriceUnit}${x.sizeEstimated ? ' (size est.)' : ''}`] : null,
     ['Regular price', x.regular ? money(x.regular) : 'Not listed in ad'],
     ['Purchase limit', x.limit ? `${x.limit} per order` : x.fromFlyer ? 'See ad' : 'None stated'],
-    ['Valid through', fmtDate(x.validTo)],
+    ['Valid through', x.validTo ? fmtDate(x.validTo) : 'No end date (shelf price)'],
     x.dept ? ['Department', x.dept] : null,
     x.canonicals?.length ? ['Dinner ingredient', x.canonicals.join(', ')] : x.canonical ? ['Dinner ingredient', x.canonical] : null,
   ].filter(Boolean);
   $('#sheet-body').innerHTML = `
     <button class="sheet-close" type="button" aria-label="Close" data-close>✕</button>
-    ${x.image ? `<div class="sheet-hero"><img src="${esc(x.image)}" alt="Ad for ${esc(x.title)}"/><span class="cap">From the ${esc(x.chainName || '')} weekly ad</span></div>` : '<div class="sheet-grab"></div>'}
+    ${x.image ? `<div class="sheet-hero"><img src="${esc(x.image)}" alt="Ad for ${esc(x.title)}"/><span class="cap">${x.flyerItemId ? `From the ${esc(x.chainName || '')} weekly ad` : `Product photo from ${esc(x.chainName || 'the store')}`}</span></div>` : '<div class="sheet-grab"></div>'}
     <div class="sheet-content">
       <div>
         <span class="badge ${x.isSale ? 'sale' : ''}">${x.isSale ? 'On sale' : 'Regular price'}</span>
@@ -1180,7 +1324,9 @@ function openSheet(x) {
         <span class="big">${money(x.price)}</span>${x.priceUnit ? `<span class="per">/ ${esc(x.priceUnit)}</span>` : ''}
         ${x.regular ? `<s>${money(x.regular)}</s>` : ''}${pctOff ? `<span class="badge sale">${pctOff}% off</span>` : ''}
       </div>` : `<div class="promo-big">${esc(x.promo || 'See the ad above for this deal\'s price')}</div>`}
+      ${x.score > 0 ? `<div class="deal-value"><b>≈${x.score}% off</b><span>${esc(x.basis)}</span></div>` : ''}
       ${x.store ? `<div class="store-card" style="--chain:${x.color}"><span class="chain-dot"></span><div class="s-main"><b>${esc(x.store.name)}</b><small>${esc(x.store.address)} · ${x.store.distance} mi${x.otherStores ? ` · +${x.otherStores} more ${esc(x.chainName)} in this ad` : ''}</small></div><a class="btn ghost sm" href="${mapsUrl(x.store)}" target="_blank" rel="noopener">Directions</a></div>` : ''}
+      ${historyBlock(x)}
       <dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       ${x.note && x.note !== x.promo ? `<div class="note">${esc(x.note)}</div>` : ''}
       <div class="links">
@@ -1189,6 +1335,7 @@ function openSheet(x) {
           : '<button class="btn primary list-toggle" type="button" data-list-toggle><span>+ Add to list</span></button>') : ''}
         ${x.sourceUrl ? `<a class="btn secondary" href="${esc(x.sourceUrl)}" target="_blank" rel="noopener"><span>Verify price — ${esc(x.sourceLabel || 'View source')}</span>${ICON.ext}</a>` : ''}
         ${x.weeklyAdUrl ? `<a class="btn secondary" href="${esc(x.weeklyAdUrl)}" target="_blank" rel="noopener"><span>${esc(x.chainName)}'s own weekly ad</span>${ICON.ext}</a>` : ''}
+        ${watchButton(x)}
         ${x.flyerId && x.flyerItemId ? `<a class="btn secondary" href="#flyers/${x.flyerId}?item=${x.flyerItemId}" data-close><span>Show it in the flyer</span>${ICON.eye}</a>` : ''}
       </div>
       <p class="verify-hint">The image above is the actual clipping from the store's ad. Prices can vary by store within an ad zone, and member prices need the store's loyalty card or app.</p>
@@ -1208,10 +1355,69 @@ $('#sheet').addEventListener('click', (e) => {
     if (parseHash().view === 'flyers') drawClips();
     return;
   }
+  if (e.target.closest('[data-watch-toggle]') && state.sheetItem) {
+    toggleWatch(state.sheetItem);
+    openSheet(state.sheetItem);
+    if (parseHash().view === 'deals' && state.dealsKey) renderDealsBody();
+    return;
+  }
+  const rm = e.target.closest('[data-watch-remove]');
+  if (rm) {
+    myWatches = myWatches.filter((w) => w.id !== rm.dataset.watchRemove);
+    saveWatches();
+    openWatchesSheet();
+    if (parseHash().view === 'deals' && state.dealsKey) renderDeals();
+    return;
+  }
+  if (e.target.closest('[data-watching]')) return openWatchesSheet();
   if (e.target === e.currentTarget || e.target.closest('[data-close]')) $('#sheet').close();
 });
 
+// ---------- installable app ----------
+// The service worker (sw.js) lets the installed app open offline. Browsers only allow it (and installing)
+// on HTTPS or localhost; over plain http://server:3000 the app still works, just not installable/offline.
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let installPrompt = null; // Android/desktop Chrome hands us this when the app can be installed
+
+function paintInstall() {
+  const el = $('#install-panel');
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let html = '';
+  if (isStandalone()) html = '';
+  else if (!window.isSecureContext) {
+    html = `<div class="install-row">${ICON.ext}<div><b>Install Ad Week as an app</b><p class="muted small">Your phone can only install it over HTTPS. On the server, run <code>tailscale serve --bg 3000</code> and open the https:// address it shows.</p></div></div>`;
+  } else if (installPrompt) {
+    html = `<div class="install-row"><img src="icons/icon-192.png" alt="" width="44" height="44"/><div><b>Install Ad Week</b><p class="muted small">Opens full-screen from your home screen and works without signal in the store.</p></div><button class="btn primary" type="button" data-install>Install</button></div>`;
+  } else if (ios) {
+    html = `<div class="install-row"><img src="icons/icon-192.png" alt="" width="44" height="44"/><div><b>Add Ad Week to your Home Screen</b><p class="muted small">In Safari, tap <b>Share</b> (the square with an arrow), then <b>Add to Home Screen</b>.</p></div></div>`;
+  }
+  el.innerHTML = html;
+  el.classList.toggle('hidden', !html);
+}
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; paintInstall(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; paintInstall(); toast('Ad Week installed'); });
+$('#install-panel').addEventListener('click', async (e) => {
+  if (!e.target.closest('[data-install]') || !installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  paintInstall();
+});
+
+// Offline note, and sync offline edits the moment the connection comes back.
+const paintOnline = () => $('#offline-note').classList.toggle('hidden', navigator.onLine);
+window.addEventListener('online', () => {
+  paintOnline();
+  if (isDirty(LIST_KEY)) pushList();
+  if (isDirty(WATCH_KEY)) pushWatches();
+});
+window.addEventListener('offline', paintOnline);
+
 // ---------- boot ----------
+paintOnline();
+paintInstall();
 route();
 pullList();
+pullWatches();
 if (saved.zip && /^\d{5}$/.test(saved.zip)) loadStores();
