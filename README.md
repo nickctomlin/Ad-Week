@@ -74,6 +74,7 @@ Four tabs (Setup, Deals, List, Flyers): a bottom bar on phones, a top bar on des
 - **Flyers.** Every current grocery weekly ad for your ZIP, page by page, as the actual ad clippings. A single compact toolbar row holds search, a Page drop-down that follows as you scroll, and a "Dinner only" toggle. Items already in your list are tagged.
 
 Tap any item to open its **item window**. It shows the real ad clipping (with the printed price), price, unit price, regular price, limit, valid-through date, and store, plus links to **verify the price**:
+- **Share.** Opens the native iOS or Android share sheet on HTTPS. Share a deal by text or another app; its link opens that exact item's window, including on a device without setup or with different store selections. Unsupported browsers copy the link, or show a selectable link if clipboard access is unavailable. Expired or removed deals show an explanation. Links use the address you're visiting, so recipients need access to that server (including Tailscale access for a private server). Android installations can open supported links in the installed PWA; iOS may open the same deal in Safari because a home-screen PWA cannot require native Universal Link handling.
 - **Verify price.** Opens the item on flipp.com, or the product on kroger.com for Kroger API prices.
 - **The chain's own weekly ad.** For example kroger.com/weeklyad or tomthumb.com/weeklyad.
 - **Show it in the flyer.** Jumps to that ad page in the Flyers tab and highlights the item.

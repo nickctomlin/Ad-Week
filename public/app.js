@@ -1,6 +1,7 @@
 // Ad Week frontend. Hash-routed tabs: #setup, #plan, #list, #deals, #flyers[/<id>?item=<id>]
 import { scoreDeal, dollarsSaved, lowestLabel } from './scoring.js';
 import { matchesWatch, suggestWatch, watchKey } from './watch.js';
+import { dealShareData, shareDeal } from './sharing.js';
 
 // ---------- utilities ----------
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -45,6 +46,7 @@ const ICON = {
   copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>'),
   back: svg('<path d="M15 18l-6-6 6-6"/>'),
   eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  share: svg('<path d="M12 16V3m-4 4 4-4 4 4M8 11H5v10h14V11h-3"/>'),
 };
 
 // The meal planner is switched off for now. Set plan: true to bring back the Plan tab and budget form.
@@ -121,6 +123,7 @@ $('#loc-chip').addEventListener('click', () => (location.hash = '#setup'));
 
 function route() {
   const { view, arg, params } = parseHash();
+  openSharedDeal(view === 'deals' && (params.has('deal') || params.has('flyer')) ? params : null);
   for (const v of document.querySelectorAll('.view')) v.classList.toggle('hidden', v.dataset.view !== view);
   renderNav();
   if (view === 'plan') renderPlan();
@@ -572,6 +575,7 @@ function toggleInList(x) {
       limit: x.limit ?? null, unitPrice: x.unitPrice ?? null, unitPriceUnit: x.unitPriceUnit ?? null, validTo: x.validTo ?? null,
       note: x.note ?? null, dept: x.dept ?? null, sourceUrl: x.sourceUrl ?? null, sourceLabel: x.sourceLabel ?? null,
       weeklyAdUrl: x.weeklyAdUrl ?? null, flyerId: x.flyerId ?? null, flyerItemId: x.flyerItemId ?? null,
+      dealId: x.dealId ?? null, shareZip: x.shareZip || state.zip,
       qty: 1, checked: false, addedAt: Date.now(),
     });
     toast('Added to your list');
@@ -632,7 +636,7 @@ function renderList() {
     <section class="group" style="--chain:${g.color || 'var(--accent)'}">
       <header class="group-head">
         <span class="chain-dot"></span>
-        <div class="g-main"><b>${esc(g.store?.name ?? g.chainName)}</b>${g.store ? `<span class="g-addr">${esc(g.store.address)} · ${g.store.distance} mi · <a class="map" href="${mapsUrl(g.store)}" target="_blank" rel="noopener">Directions</a></span>` : ''}</div>
+        <div class="g-main"><b>${esc(g.store?.name ?? g.chainName)}</b>${g.store ? `<span class="g-addr">${esc(g.store.address)}${g.store.distance != null ? ` · ${g.store.distance} mi` : ''} · <a class="map" href="${mapsUrl(g.store)}" target="_blank" rel="noopener">Directions</a></span>` : ''}</div>
         <span class="g-total">${g.items.some((x) => x.price != null) ? money(listTotal(g.items)) : '—'}</span>
       </header>
       ${g.items.map(row).join('')}
@@ -1176,11 +1180,12 @@ async function loadFlyers() {
 
 async function renderFlyers(arg, params) {
   const el = $('#flyers-view');
+  const zip = params?.get('zip') || state.zip;
+  if (arg && /^\d{5}$/.test(zip)) return renderFlyerViewer(Number(arg), Number(params.get('item')) || null, zip);
   if (!state.zip) {
     el.innerHTML = emptyState('flyers', 'No location yet', 'Enter your ZIP on the Setup tab to browse every store\'s weekly ad.');
     return;
   }
-  if (arg) return renderFlyerViewer(Number(arg), Number(params.get('item')) || null);
   if (!state.flyers || state.flyersZip !== state.zip) {
     el.innerHTML = `<div class="view-head"><h1 id="h-flyers">Weekly ads</h1></div><div class="flyer-cards">${'<div class="skel" style="height:260px"></div>'.repeat(4)}</div>`;
     try { await loadFlyers(); } catch { return; }
@@ -1216,12 +1221,13 @@ $('#flyers-view').addEventListener('click', (e) => {
   }
 });
 
-async function renderFlyerViewer(id, highlightId) {
+async function renderFlyerViewer(id, highlightId, zip = state.zip) {
   const el = $('#flyers-view');
-  if (state.flyer?.flyer.id !== id) {
+  if (state.flyer?.flyer.id !== id || state.flyerZip !== zip) {
     el.innerHTML = `<div class="view-head"><h1 id="h-flyers">Loading ad…</h1></div><div class="clips">${'<div class="skel" style="height:220px;margin-bottom:10px"></div>'.repeat(8)}</div>`;
     try {
-      state.flyer = await api(`/api/flyer?zip=${state.zip}&id=${id}`);
+      state.flyer = await api(`/api/flyer?zip=${encodeURIComponent(zip)}&id=${id}`);
+      state.flyerZip = zip;
     } catch (err) {
       el.innerHTML = emptyState('flyers', "Couldn't open this ad", esc(err.message), `<a class="btn primary" href="#flyers">Back to all ads</a>`);
       return;
@@ -1296,6 +1302,7 @@ function drawClips(highlightId) {
 // Normalized shape for the sheet, built from a deal, a list line, or a flyer item.
 function fromDeal(d) {
   return {
+    dealId: d.dealId, shareZip: d.shareZip || state.zip,
     image: d.imageUrl, title: d.item, canonical: d.canonical, chainName: d.chainName, color: d.chainColor, store: d.store, otherStores: d.otherStores,
     price: d.salePrice, priceUnit: d.priceUnit, regular: d.regularPrice, percentOff: d.percentOff, unitPrice: d.unitPrice, unitPriceUnit: d.unitPriceUnit,
     limit: d.limit, validTo: d.validTo, sizeEstimated: d.sizeEstimated, note: d.note, sourceUrl: d.sourceUrl, sourceLabel: d.sourceLabel,
@@ -1307,6 +1314,7 @@ function fromLine(p, ln) {
   const deal = state.deals.find((d) => d.flyerItemId && d.flyerItemId === ln.flyerItemId && d.canonical === p.canonical);
   return {
     ...(deal ? fromDeal(deal) : {}),
+    dealId: ln.dealId || deal?.dealId,
     image: ln.imageUrl, title: ln.itemName, canonical: p.canonical, store: ln.store, color: ln.chainColor,
     chainName: deal?.chainName ?? ln.store.name, price: ln.price, priceUnit: ln.soldBy === 'weight' ? 'lb' : 'each', regular: ln.regularPrice,
     limit: ln.limit, validTo: ln.validTo, sizeEstimated: ln.sizeEstimated, note: ln.dealNote, sourceUrl: ln.sourceUrl, sourceLabel: ln.sourceLabel,
@@ -1316,7 +1324,7 @@ function fromLine(p, ln) {
 }
 function fromFlyerItem(it, flyer) {
   const deal = state.deals.find((d) => d.flyerItemId === it.id);
-  if (deal) return { ...fromDeal(deal), image: it.image };
+  if (deal) return { ...fromDeal(deal), image: it.image, shareZip: state.flyerZip || state.zip };
   // Not a parsed deal (e.g. a store you haven't selected): list it at the nearest store of that chain.
   const store = state.stores.filter((s) => s.chain === flyer.chain).sort((a, b) => Number(state.selected.has(b.id)) - Number(state.selected.has(a.id)) || a.distance - b.distance)[0];
   return {
@@ -1324,16 +1332,52 @@ function fromFlyerItem(it, flyer) {
     price: it.price ? Number(it.price) : null, priceUnit: it.price ? 'each' : null, validTo: flyer.valid_to, sourceUrl: it.flippUrl, sourceLabel: 'View on Flipp',
     weeklyAdUrl: flyer.weeklyAdUrl, flyerId: flyer.id, flyerItemId: it.id, isSale: true, fromFlyer: true, listId: `flyer:${it.id}`,
     promo: it.price ? null : 'See the ad for this price',
+    shareZip: state.flyerZip || state.zip,
   };
 }
+
+// A direct item lookup opens shared cards before setup loads, regardless of store filters.
+let sharedRoute = '';
+async function openSharedDeal(params) {
+  const key = params ? params.toString() : '';
+  if (key === sharedRoute) return;
+  sharedRoute = key;
+  if (!key) { if (state.sharedSheet) $('#sheet').close(); return; }
+  state.sharedSheet = true;
+  state.sheetItem = null;
+  const body = $('#sheet-body');
+  body.innerHTML = '<div class="sheet-grab"></div><div class="sheet-content"><h2 id="sheet-title">Opening deal…</h2><button class="btn secondary" type="button" data-close>Close</button></div>';
+  if (!$('#sheet').open) $('#sheet').showModal();
+  try {
+    const r = await api(`/api/shared-deal?${key}`);
+    if (sharedRoute !== key) return;
+    const x = r.deal ? fromDeal(r.deal) : fromFlyerItem(r.item, r.flyer);
+    x.shareZip = r.zip || params.get('zip') || '';
+    openSheet(x);
+  } catch (err) {
+    if (sharedRoute !== key) return;
+    body.innerHTML = `<div class="sheet-grab"></div><div class="sheet-content"><h2 id="sheet-title">Couldn't open this deal</h2><p>${esc(err.message)}</p><button class="btn primary" type="button" data-share-retry>Try again</button><a class="btn secondary" href="#deals" data-close>Browse current deals</a></div>`;
+  }
+}
+
+$('#sheet').addEventListener('close', () => {
+  if (!state.sharedSheet) return;
+  state.sharedSheet = false;
+  sharedRoute = '';
+  const { params } = parseHash();
+  if (params.has('deal') || params.has('flyer')) {
+    for (const key of ['deal', 'store', 'flyer', 'item', 'zip']) params.delete(key);
+    history.replaceState(null, '', `#deals${params.size ? `?${params}` : ''}`);
+  }
+});
 
 /** ☆ Watch / ★ Watching button for the item window (watches the ingredient, or keywords from the name). */
 function watchButton(x) {
   if (!x.title) return '';
   const s = suggestWatch(x);
   return findWatch(s)
-    ? `<button class="btn secondary watch-toggle on" type="button" data-watch-toggle><span>★ Watching ${esc(s.label)}</span><span class="muted small">Stop</span></button>`
-    : `<button class="btn secondary watch-toggle" type="button" data-watch-toggle><span>☆ Watch ${esc(s.label)}</span><span class="muted small">See it first when on sale</span></button>`;
+    ? `<button class="btn secondary watch-toggle on" type="button" data-watch-toggle aria-label="Stop watching ${esc(s.label)}" aria-pressed="true">★ Watching</button>`
+    : `<button class="btn secondary watch-toggle" type="button" data-watch-toggle aria-label="Watch ${esc(s.label)}" aria-pressed="false">☆ Watch</button>`;
 }
 
 /** Small bar chart of this item's price over past ad weeks, with a one-line summary. */
@@ -1356,13 +1400,14 @@ function historyBlock(x) {
 }
 
 function openSheet(x) {
+  const share = dealShareData(x, location.href, state.zip);
   const pctOff = x.percentOff ?? (x.regular && x.price ? Math.round((1 - x.price / x.regular) * 100) : null);
+  const promo = x.price == null && x.note && x.promo?.startsWith(x.note) ? x.note : x.promo;
+  const meta = [x.validTo ? `Through ${fmtDate(x.validTo)}` : '', x.limit ? `Limit ${x.limit} per order` : ''].filter(Boolean);
   const facts = [
     x.buying ? ['You\'re buying', x.buying] : null,
     x.unitPrice != null ? ['Unit price', `${money(x.unitPrice)}/${x.unitPriceUnit}${x.sizeEstimated ? ' (size est.)' : ''}`] : null,
-    ['Regular price', x.regular ? money(x.regular) : 'Not listed in ad'],
-    ['Purchase limit', x.limit ? `${x.limit} per order` : x.fromFlyer ? 'See ad' : 'None stated'],
-    ['Valid through', x.validTo ? fmtDate(x.validTo) : 'No end date (shelf price)'],
+    x.regular != null ? ['Regular price', money(x.regular)] : null,
     x.dept ? ['Department', x.dept] : null,
     x.canonicals?.length ? ['Dinner ingredient', x.canonicals.join(', ')] : x.canonical ? ['Dinner ingredient', x.canonical] : null,
   ].filter(Boolean);
@@ -1370,29 +1415,38 @@ function openSheet(x) {
     <button class="sheet-close" type="button" aria-label="Close" data-close>✕</button>
     ${x.image ? `<div class="sheet-hero"><img src="${esc(x.image)}" alt="Ad for ${esc(x.title)}"/><span class="cap">${x.flyerItemId ? `From the ${esc(x.chainName || '')} weekly ad` : `Product photo from ${esc(x.chainName || 'the store')}`}</span></div>` : '<div class="sheet-grab"></div>'}
     <div class="sheet-content">
-      <div>
-        <span class="badge ${x.isSale ? 'sale' : ''}">${x.isSale ? 'On sale' : 'Regular price'}</span>
-        <h2 id="sheet-title" style="margin-top:8px">${esc(x.title)}</h2>
+      <div class="sheet-heading">
+        <h2 id="sheet-title">${esc(x.title)}</h2>
+        ${share ? `<button class="btn secondary sm" type="button" data-share aria-label="Share deal">${ICON.share} Share</button>` : ''}
       </div>
+      ${share ? `<p class="muted small" data-share-status role="status" hidden></p><label data-share-fallback hidden>Deal link<input type="url" readonly value="${esc(share.url)}" aria-label="Deal link" /></label>` : ''}
       ${x.price != null ? `<div class="price-row">
         <span class="big">${money(x.price)}</span>${x.priceUnit ? `<span class="per">/ ${esc(x.priceUnit)}</span>` : ''}
-        ${x.regular ? `<s>${money(x.regular)}</s>` : ''}${pctOff ? `<span class="badge sale">${pctOff}% off</span>` : ''}
-      </div>` : `<div class="promo-big">${esc(x.promo || 'See the ad above for this deal\'s price')}</div>`}
-      ${x.score > 0 ? `<div class="deal-value"><b>≈${x.score}% off</b><span>${esc(x.basis)}</span></div>` : ''}
-      ${x.store ? `<div class="store-card" style="--chain:${x.color}"><span class="chain-dot"></span><div class="s-main"><b>${esc(x.store.name)}</b><small>${esc(x.store.address)} · ${x.store.distance} mi${x.otherStores ? ` · +${x.otherStores} more ${esc(x.chainName)} in this ad` : ''}</small></div><a class="btn ghost sm" href="${mapsUrl(x.store)}" target="_blank" rel="noopener">Directions</a></div>` : ''}
-      ${historyBlock(x)}
-      <dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
-      ${x.note && x.note !== x.promo ? `<div class="note">${esc(x.note)}</div>` : ''}
-      <div class="links">
+        ${x.regular ? `<s>${money(x.regular)}</s>` : ''}${pctOff > 0 ? `<span class="badge sale">${pctOff}% off</span>` : x.score > 0 ? `<span class="badge sale">≈${x.score}% off</span>` : ''}
+      </div>` : `<div class="promo-big">${esc(promo || 'See the ad above for this deal\'s price')}</div>`}
+      ${meta.length ? `<p class="sheet-meta">${esc(meta.join(' · '))}</p>` : ''}
+      ${x.store ? `<div class="store-card" style="--chain:${x.color}"><span class="chain-dot"></span><div class="s-main"><b>${esc(x.store.name)}</b><small>${esc(x.store.address)}${x.store.distance != null ? ` · ${x.store.distance} mi` : ''}${x.otherStores ? ` · +${x.otherStores} more ${esc(x.chainName)} in this ad` : ''}</small></div><a class="btn ghost sm" href="${mapsUrl(x.store)}" target="_blank" rel="noopener">Directions</a></div>` : ''}
+      <div class="sheet-actions">
         ${x.listId ? (inList(x.listId)
           ? '<button class="btn secondary list-toggle on" type="button" data-list-toggle><span>✓ In your list</span><span class="muted small">Remove</span></button>'
           : '<button class="btn primary list-toggle" type="button" data-list-toggle><span>+ Add to list</span></button>') : ''}
+        ${watchButton(x)}
+      </div>
+      <details class="sheet-details">
+        <summary>Deal details</summary>
+        <div class="sheet-details-body">
+        ${historyBlock(x)}
+        ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+        ${x.score > 0 && x.price != null ? `<p class="muted small">Savings estimate: ${esc(x.basis)}</p>` : ''}
+        ${x.note && !String(promo || '').includes(x.note) ? `<div class="note">${esc(x.note)}</div>` : ''}
+        <div class="links">
         ${x.sourceUrl ? `<a class="btn secondary" href="${esc(x.sourceUrl)}" target="_blank" rel="noopener"><span>Verify price — ${esc(x.sourceLabel || 'View source')}</span>${ICON.ext}</a>` : ''}
         ${x.weeklyAdUrl ? `<a class="btn secondary" href="${esc(x.weeklyAdUrl)}" target="_blank" rel="noopener"><span>${esc(x.chainName)}'s own weekly ad</span>${ICON.ext}</a>` : ''}
-        ${watchButton(x)}
-        ${x.flyerId && x.flyerItemId ? `<a class="btn secondary" href="#flyers/${x.flyerId}?item=${x.flyerItemId}" data-close><span>Show it in the flyer</span>${ICON.eye}</a>` : ''}
-      </div>
-      <p class="verify-hint">The image above is the actual clipping from the store's ad. Prices can vary by store within an ad zone, and member prices need the store's loyalty card or app.</p>
+        ${x.flyerId && x.flyerItemId ? `<a class="btn secondary" href="#flyers/${x.flyerId}?item=${x.flyerItemId}&zip=${encodeURIComponent(x.shareZip || state.zip)}" data-close><span>Show it in the flyer</span>${ICON.eye}</a>` : ''}
+        </div>
+        <p class="verify-hint">Prices can vary by store. Member and digital coupon prices require the store's loyalty card or app. Check the ad for full terms.</p>
+        </div>
+      </details>
     </div>`;
   state.sheetItem = x;
   const hero = $('#sheet-body .sheet-hero');
@@ -1499,6 +1553,26 @@ function enableZoom(box, img) {
 // Dragging on the dimmed area around the item window shouldn't scroll the page behind it.
 $('#sheet').addEventListener('touchmove', (e) => { if (!e.target.closest('.sheet-inner')) e.preventDefault(); }, { passive: false });
 $('#sheet').addEventListener('click', (e) => {
+  if (e.target.closest('[data-share-retry]')) {
+    sharedRoute = '';
+    return openSharedDeal(parseHash().params);
+  }
+  const shareButton = e.target.closest('[data-share]');
+  if (shareButton && state.sheetItem) {
+    const data = dealShareData(state.sheetItem, location.href, state.zip);
+    if (!data || shareButton.disabled) return;
+    shareButton.disabled = true;
+    shareDeal(data).then((result) => {
+      if (!shareButton.isConnected) return;
+      const status = $('[data-share-status]', $('#sheet-body'));
+      status.hidden = result === 'shared' || result === 'cancelled';
+      status.textContent = result === 'copied' ? 'Deal link copied. Paste it into a message.' : 'Copy the deal link below to share it.';
+      const fallback = $('[data-share-fallback]', $('#sheet-body'));
+      fallback.hidden = result !== 'manual';
+      if (result === 'manual') { const input = $('input', fallback); input.focus(); input.select(); }
+    }).finally(() => { shareButton.disabled = false; });
+    return;
+  }
   if (e.target.closest('[data-list-toggle]') && state.sheetItem) {
     const x = state.sheetItem;
     toggleInList(x);

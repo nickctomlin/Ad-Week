@@ -7,7 +7,7 @@ import { db } from './db.ts';
 import { geocodeZip, UserError } from './geo.ts';
 import { findStores } from './stores.ts';
 import { startIngest, getJob, isStale, trackZip, refreshTracked } from './ingest.ts';
-import { buildOffers, chainStatuses, dealsForDisplay, everydayBaselines, makePlan } from './api.ts';
+import { buildOffers, chainStatuses, dealsForDisplay, everydayBaselines, makePlan, sharedDeal } from './api.ts';
 import { HOUR } from './http.ts';
 import { listFlyers, getFlyerItems, type FlyerItem } from './sources/flipp.ts';
 import { CHAINS, CHAIN_BY_ID } from './sources/types.ts';
@@ -106,6 +106,25 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       const ids = (url.searchParams.get('stores') || '').split(',').filter(Boolean);
       const { selected } = await context(zip, radius, ids);
       return send(res, 200, { deals: dealsForDisplay(zip, selected), departments: DEPARTMENTS, baselines: everydayBaselines(zip, selected) });
+    }
+
+    case 'GET /api/shared-deal': {
+      const id = url.searchParams.get('deal');
+      if (id) return send(res, 200, sharedDeal(id, url.searchParams.get('store')));
+      // Flyer tiles which are not parsed grocery deals can still be shared.
+      if (!/^\d{5}$/.test(zip)) throw new UserError('This ad link is missing a valid ZIP code.');
+      const flyerId = Number(url.searchParams.get('flyer'));
+      const itemId = Number(url.searchParams.get('item'));
+      if (!Number.isSafeInteger(flyerId) || flyerId <= 0 || !Number.isSafeInteger(itemId) || itemId <= 0) {
+        throw new UserError('This ad link is invalid.');
+      }
+      const flyer = (await listFlyers(zip)).find((f) => f.id === flyerId);
+      if (!flyer) throw new UserError('This ad is no longer current. Browse the latest deals instead.', 410);
+      const { items } = await getFlyerItems(flyer);
+      const item = items.find((it) => it.id === itemId);
+      if (!item) throw new UserError('This item is no longer available in the ad.', 404);
+      const chain = CHAIN_BY_ID.get(flyer.chain)!;
+      return send(res, 200, { zip, item, flyer: { ...flyer, chainName: chain.name, color: chain.color, weeklyAdUrl: chain.weeklyAdUrl } });
     }
 
     case 'GET /api/flyers': {

@@ -518,7 +518,7 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet-grab { width: 40px; height: 5px; border-radius: 999px; background: var(--border-strong); margin: 8px auto 0; }
 .sheet-close { position: absolute; right: 12px; top: 12px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgb(0 0 0 / .55); color: #fff; font-size: 1.1rem; cursor: pointer; z-index: 2; }
 .sheet-hero { position: relative; background: #fff; display: grid; place-items: center; padding: 14px; border-bottom: 1px solid var(--border); }
-.sheet-hero img { max-height: 46dvh; width: auto; border-radius: 8px; transform-origin: center; will-change: transform; }
+.sheet-hero img { max-height: 38dvh; width: auto; border-radius: 8px; transform-origin: center; will-change: transform; }
 /* The picture can be pinch-zoomed inside its box; it springs back on release. */
 .sheet-hero { overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .sheet-hero.zoomed { touch-action: none; }
@@ -526,6 +526,18 @@ html:has(.sheet[open]) { overflow: hidden; }
 .sheet-hero .cap { position: absolute; left: 12px; bottom: 10px; font-size: .68rem; background: rgb(0 0 0 / .6); color: #fff; padding: 3px 8px; border-radius: 999px; }
 .sheet-content { padding: 16px 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; overflow-wrap: anywhere; }
 .sheet-content h2 { font-size: 1.12rem; line-height: 1.3; }
+.sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet-heading .btn { flex: none; }
+.sheet-meta { margin: -6px 0 0; color: var(--muted); font-size: .8rem; }
+.sheet-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.sheet-actions .btn { justify-content: center; }
+.sheet-actions .list-toggle.on { gap: 10px; flex-wrap: wrap; }
+.sheet-actions .watch-toggle { white-space: nowrap; }
+.sheet-details { border-top: 1px solid var(--border); }
+.sheet-details summary { padding: 14px 0 2px; min-height: 44px; cursor: pointer; color: var(--text-2); font-size: .85rem; font-weight: 650; }
+.sheet-details-body { display: grid; gap: 12px; padding-top: 12px; }
+.sheet-details-body > p { margin: 0; }
+[data-share-fallback] input { width: 100%; margin-top: 6px; }
 .price-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .price-row .big { font-size: 2rem; font-weight: 800; color: var(--sale); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .price-row .per { color: var(--muted); }

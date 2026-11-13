@@ -2,7 +2,7 @@
 import { db } from './db.ts';
 import { hasKroger, hasAnthropic, config } from './config.ts';
 import { latestRuns, getJob } from './ingest.ts';
-import { CHAINS, CHAIN_BY_ID, type ChainId, type Deal } from './sources/types.ts';
+import { CHAINS, CHAIN_BY_ID, type ChainId, type Deal, type Store } from './sources/types.ts';
 import type { StoreWithDistance } from './stores.ts';
 import { CANONICAL_BY_KEY } from './normalize.ts';
 import { displayPriceUnit } from './sources/deal.ts';
@@ -153,28 +153,46 @@ export function dealsForDisplay(zip: string, stores: StoreWithDistance[]) {
       : byChain.get(rep.chain) ?? []).sort((a, b) => a.distance - b.distance);
     if (!targets.length) continue;
     const s = storeLevel ? storeById.get(rep.store_id!) ?? targets[0] : targets[0];
-    const can = rep.canonical ? CANONICAL_BY_KEY.get(rep.canonical) : undefined;
-    const price = rep.sale_price;
-    const priceUnit = displayPriceUnit(rep, can);
-    out.push({
+    out.push(displayDeal(rep, [...new Set(ds.map((d) => d.canonical).filter((c): c is string => !!c))], s, targets.length - 1));
+  }
+  // Attach each item's price history (past ad weeks only count toward "usual" and "lowest").
+  const hist = historyFor(out.map((d) => d.historyKey));
+  for (const d of out) d.history = summarizeHistory(hist.get(d.historyKey));
+  return out.sort((a, b) => DEPT_ORDER.indexOf(a.dept) - DEPT_ORDER.indexOf(b.dept) || a.item.localeCompare(b.item));
+}
+
+function displayDeal(rep: Deal, canonicals: string[], store: (Store & { distance: number | null }) | null, otherStores = 0) {
+  const can = rep.canonical ? CANONICAL_BY_KEY.get(rep.canonical) : undefined;
+  const price = rep.sale_price;
+  return {
       dealId: rep.id, item: rep.item_name,
-      canonical: rep.canonical, canonicals: [...new Set(ds.map((d) => d.canonical).filter(Boolean))],
+      canonical: rep.canonical, canonicals,
       dept: rep.dept, deptLabel: deptLabel(rep.dept),
       chain: rep.chain, chainName: CHAIN_BY_ID.get(rep.chain)?.name ?? rep.chain,
-      store: { id: s.id, chain: s.chain, name: s.name, address: s.address, distance: s.distance }, otherStores: targets.length - 1,
-      salePrice: price, promoText: rep.promo_text, priceUnit, regularPrice: rep.regular_price,
+      store: store ? { id: store.id, chain: store.chain, name: store.name, address: store.address, distance: store.distance } : null, otherStores,
+      salePrice: price, promoText: rep.promo_text, priceUnit: displayPriceUnit(rep, can), regularPrice: rep.regular_price,
       percentOff: price != null && rep.regular_price ? Math.round((1 - price / rep.regular_price) * 100) : null,
       unitPrice: rep.unit_price, unitPriceUnit: rep.unit_price_unit,
       sizeEstimated: !!rep.size_estimated, limit: rep.limit_qty, validTo: rep.valid_to,
       ...verifyFields(rep.chain, { imageUrl: rep.image_url, sourceUrl: rep.source_url, flyerId: rep.flyer_id, flyerItemId: rep.flyer_item_id, note: rep.note }),
       historyKey: historyKey(rep),
       history: null as ReturnType<typeof summarizeHistory>,
-    });
+  };
+}
+
+/** A shared item is independent of the recipient's ZIP, radius and selected stores. */
+export function sharedDeal(id: string, storeId: string | null) {
+  const row = db.prepare('SELECT * FROM deals WHERE id = ?').get(id) as Deal | undefined;
+  if (!row) throw new UserError('This deal is no longer available. Browse the latest deals instead.', 404);
+  const now = new Date().toISOString();
+  if ((row.valid_to && row.valid_to < now) || (row.valid_from && row.valid_from > now)) {
+    throw new UserError('This ad is no longer current. Browse the latest deals instead.', 410);
   }
-  // Attach each item's price history (past ad weeks only count toward "usual" and "lowest").
-  const hist = historyFor(out.map((d) => d.historyKey));
-  for (const d of out) d.history = summarizeHistory(hist.get(d.historyKey));
-  return out.sort((a, b) => DEPT_ORDER.indexOf(a.dept) - DEPT_ORDER.indexOf(b.dept) || a.item.localeCompare(b.item));
+  // Only attach a real store belonging to this deal's chain. Distance depends on the viewer's location.
+  const store = db.prepare('SELECT * FROM stores WHERE id = ? AND chain = ?').get(row.store_id || storeId || '', row.chain) as Store | undefined;
+  const deal = displayDeal(row, row.canonical ? [row.canonical] : [], store ? { ...store, distance: null } : null);
+  deal.history = summarizeHistory(historyFor([deal.historyKey]).get(deal.historyKey));
+  return { deal, zip: row.zone };
 }
 
 /** Weeks seen, plus the lowest and median price from *previous* ad weeks. */
