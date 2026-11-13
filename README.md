@@ -96,6 +96,7 @@ docker compose up -d --build    # http://<server>:3000
 **Install as an app.** Ad Week is a Progressive Web App:
 - `public/manifest.webmanifest` provides the home-screen icon.
 - `public/sw.js` lets it open and show your last-loaded deals, list and watches with no signal.
+- Kroger product photos load through Ad Week's own `/api/product-image` endpoint, so a phone does not have to connect directly to Kroger for each image. Valid photos are cached in the existing database (up to 32 MB), temporary failures retry once, and a cached photo remains available during an upstream outage. This also applies to older saved list images without refreshing the deals. Only fixed public Kroger image paths are accepted; arbitrary URLs and redirects are rejected.
 
 Phones only allow installing on **HTTPS**. With Tailscale, run this once on the server:
 

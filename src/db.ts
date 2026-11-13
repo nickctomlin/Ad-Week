@@ -128,6 +128,14 @@ CREATE TABLE IF NOT EXISTS tracked_zips (
   zip TEXT PRIMARY KEY,
   last_requested INTEGER NOT NULL
 );
+
+-- Public product photos are cached separately from price data and bounded to 32 MB by images.ts.
+CREATE TABLE IF NOT EXISTS product_images (
+  path TEXT PRIMARY KEY,
+  body BLOB NOT NULL,
+  content_type TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+);
 `);
 
 // Bump when deal parsing changes (prices, units, departments). Saved deals are then rebuilt on the next
