@@ -2,6 +2,7 @@
 import { scoreDeal, dollarsSaved, lowestLabel } from './scoring.js';
 import { matchesWatch, suggestWatch, watchKey } from './watch.js';
 import { dealShareData, shareDeal } from './sharing.js';
+import { imageUrl } from './images.js';
 
 // ---------- utilities ----------
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -430,7 +431,7 @@ function renderPlan() {
   const meals = p.meals.map((m, idx) => `
     <article class="meal ${prep ? 'prep' : ''}">
       <div class="meal-top">
-        ${m.image ? `<button class="meal-img" data-meal-img="${idx}" aria-label="See the ad for ${esc(m.name)}"><img src="${esc(m.image)}" alt="" loading="lazy"/></button>` : `<div class="meal-img noimg">🍽</div>`}
+        ${m.image ? `<button class="meal-img" data-meal-img="${idx}" aria-label="See the ad for ${esc(m.name)}"><img src="${esc(imageUrl(m.image))}" alt="" loading="lazy"/></button>` : `<div class="meal-img noimg">🍽</div>`}
         <div class="meal-info">
           <span class="meal-kicker">${prep ? `Meal prep · cook once · ${m.minutes} min` : `Dinner ${idx + 1} · ${m.minutes} min`}</span>
           <h3>${esc(m.name)}</h3>
@@ -616,7 +617,7 @@ function renderList() {
     const cost = lineCost(x);
     return `<div class="item list-item ${x.checked ? 'done' : ''}">
       <input type="checkbox" data-check="${esc(x.id)}" ${x.checked ? 'checked' : ''} aria-label="Got ${esc(x.title)}"/>
-      ${x.image ? `<button class="thumb" data-open="${esc(x.id)}" aria-label="See the ad"><img src="${esc(x.image)}" alt="" loading="lazy"/></button>` : ''}
+      ${x.image ? `<button class="thumb" data-open="${esc(x.id)}" aria-label="See the ad"><img src="${esc(imageUrl(x.image))}" alt="" loading="lazy"/></button>` : ''}
       <div class="i-main" data-open="${esc(x.id)}">
         <div class="i-title">${esc(x.title)}</div>
         <span class="i-sub">${priceLine}${x.validTo ? ` · ends ${fmtShort(x.validTo)}` : ' · shelf price'}</span>
@@ -857,7 +858,7 @@ const addBtn = (id) => {
 // (unit price, limit, end date, full coupon terms) is one tap away in the item window.
 function dealCard(d) {
   return `<div class="deal" data-deal="${esc(d.dealId)}" role="button" tabindex="0" aria-label="${esc(d.item)}">
-    <div class="d-img">${d.imageUrl ? `<img src="${esc(d.imageUrl)}" alt="" loading="lazy"/>` : ''}</div>
+    <div class="d-img">${d.imageUrl ? `<img src="${esc(imageUrl(d.imageUrl))}" alt="" loading="lazy"/>` : ''}</div>
     <div class="d-main">
       <span class="d-name">${esc(d.item)}</span>
       <span class="d-store"><span class="chain-dot" style="--chain:${d.chainColor}"></span>${esc(d.chainName)} · ${d.store.distance} mi${myWatches.length && isWatched(d) ? ' <span class="star" title="On your watch list">★</span>' : ''}${(() => { const low = lowestLabel(d); return low ? ` · <span class="low-tag">↓ ${esc(low.replace('weeks', 'wks'))}</span>` : ''; })()}</span>
@@ -1413,7 +1414,7 @@ function openSheet(x) {
   ].filter(Boolean);
   $('#sheet-body').innerHTML = `
     <button class="sheet-close" type="button" aria-label="Close" data-close>✕</button>
-    ${x.image ? `<div class="sheet-hero"><img src="${esc(x.image)}" alt="Ad for ${esc(x.title)}"/><span class="cap">${x.flyerItemId ? `From the ${esc(x.chainName || '')} weekly ad` : `Product photo from ${esc(x.chainName || 'the store')}`}</span></div>` : '<div class="sheet-grab"></div>'}
+    ${x.image ? `<div class="sheet-hero"><img src="${esc(imageUrl(x.image))}" alt="Ad for ${esc(x.title)}"/><span class="cap">${x.flyerItemId ? `From the ${esc(x.chainName || '')} weekly ad` : `Product photo from ${esc(x.chainName || 'the store')}`}</span></div>` : '<div class="sheet-grab"></div>'}
     <div class="sheet-content">
       <div class="sheet-heading">
         <h2 id="sheet-title">${esc(x.title)}</h2>

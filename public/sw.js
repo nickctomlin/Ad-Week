@@ -2,9 +2,10 @@
 // with no signal. Strategy for same-site GET requests: network first (so you always get fresh data and new
 // versions when online), saving a copy; fall back to the saved copy when offline or when the network takes
 // longer than a few seconds (weak in-store signal). Writes (PUT/POST) and other sites go straight through.
-const VERSION = 'adweek-v2';
+const VERSION = 'adweek-images-v1';
 const SHELL = [
   '/', '/index.html', '/app.js', '/scoring.js', '/watch.js', '/sharing.js', '/styles.css', '/manifest.webmanifest',
+  '/images.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
 ];
 const SLOW_MS = 5000;
@@ -37,6 +38,7 @@ async function networkFirst(req) {
   const saved = await cache.match(req);
   const network = fetch(req).then((res) => {
     if (res.ok) cache.put(req, res.clone());
+    if (!res.ok && saved && new URL(req.url).pathname === '/api/product-image') return saved;
     return res;
   });
   network.catch(() => {}); // a late failure after we've answered from the saved copy is fine

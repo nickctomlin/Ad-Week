@@ -13,6 +13,7 @@ import { listFlyers, getFlyerItems, type FlyerItem } from './sources/flipp.ts';
 import { CHAINS, CHAIN_BY_ID } from './sources/types.ts';
 import { DEPARTMENTS } from './departments.ts';
 import { seedHistoryFromCache } from './history.ts';
+import { getProductImage } from './images.ts';
 
 const PUBLIC = join(config.root, 'public');
 const TYPES: Record<string, string> = {
@@ -56,6 +57,16 @@ function jobView(zip: string) {
 async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   const zip = url.searchParams.get('zip') || '';
   switch (`${req.method} ${url.pathname}`) {
+    case 'GET /api/product-image': {
+      const image = await getProductImage(url.searchParams.get('path') || '');
+      res.writeHead(200, {
+        'Content-Type': image.contentType, 'Content-Length': image.body.byteLength,
+        'Cache-Control': `public, max-age=${image.stale ? 300 : 86400}`,
+        'X-Content-Type-Options': 'nosniff',
+      });
+      res.end(image.body);
+      return;
+    }
     // Your shopping list and your watches, stored server-side so every device shares them.
     case 'GET /api/list':
     case 'GET /api/watches': {
