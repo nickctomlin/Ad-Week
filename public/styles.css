@@ -370,6 +370,8 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 .deal-toolbar { transition: clip-path .2s ease; }
 .deal-toolbar:not(:has(.multi[open])) { clip-path: inset(0 0 0 0); }
 .bar-more { display: grid; gap: 8px; transition: opacity .15s ease, visibility 0s; }
+#deal-crumb { min-width: 0; }
+#deal-crumb:empty { display: none; }
 .search-row { display: flex; gap: 8px; align-items: center; }
 .search-row .search { flex: 1; min-width: 0; }
 .bar-back, .filter-pill { display: none; height: 42px; }
@@ -380,7 +382,7 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 .filter-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .7rem; display: grid; place-items: center; }
 /* Condensed: clip off everything below the search row. Clipping (not shrinking) keeps the page from jumping. */
 .deal-toolbar.collapsed:not(:has(.multi[open])) { clip-path: inset(0 0 var(--hide, 0px) 0); }
-.deal-toolbar.collapsed .bar-more { opacity: 0; visibility: hidden; transition: opacity .15s ease, visibility 0s .2s; }
+.deal-toolbar.collapsed .bar-more, .deal-toolbar.collapsed #deal-crumb { opacity: 0; visibility: hidden; transition: opacity .15s ease, visibility 0s .2s; }
 .deal-toolbar.collapsed .filter-pill { display: inline-flex; }
 .deal-toolbar.collapsed.can-back .bar-back { display: grid; }
 .deal-toolbar.collapsed::after { content: ""; position: absolute; left: 0; right: 0; bottom: var(--hide, 0px); border-bottom: 1px solid var(--border); }
@@ -424,6 +426,9 @@ input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transpare
 .empty-state.slim { padding: 28px 16px; }
 @media (min-width: 760px) {
   .deal-toolbar { grid-template-columns: 1fr auto; align-items: center; margin-left: 0; margin-right: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .deal-toolbar .search-row { grid-column: 1; grid-row: 1; }
+  .deal-toolbar .bar-more { grid-column: 2; grid-row: 1; }
+  .deal-toolbar #deal-crumb { grid-column: 1 / -1; grid-row: 2; }
   .selects { grid-template-columns: repeat(3, 170px); }
   .active-filters { grid-column: 1 / -1; }
 }

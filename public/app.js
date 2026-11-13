@@ -2,6 +2,7 @@
 import { scoreDeal, dollarsSaved, lowestLabel } from './scoring.js';
 import { matchesWatch, suggestWatch, watchKey } from './watch.js';
 import { dealShareData, shareDeal } from './sharing.js';
+import { createPlayground } from './playground.js';
 
 // ---------- utilities ----------
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -47,6 +48,7 @@ const ICON = {
   back: svg('<path d="M15 18l-6-6 6-6"/>'),
   eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   share: svg('<path d="M12 16V3m-4 4 4-4 4 4M8 11H5v10h14V11h-3"/>'),
+  playground: svg('<path d="M4 20V10m8 10V4m8 16v-7M2 20h20"/><path d="m3 6 6-3 6 5 6-5"/>'),
 };
 
 // The meal planner is switched off for now. Set plan: true to bring back the Plan tab and budget form.
@@ -58,6 +60,7 @@ const TABS = [
   { id: 'deals', label: 'Deals' },
   { id: 'list', label: 'List' },
   { id: 'flyers', label: 'Flyers' },
+  { id: 'playground', label: 'Playground' },
 ].filter((t) => FEATURES.plan || t.id !== 'plan');
 
 async function api(path, opts = {}) {
@@ -128,6 +131,7 @@ function route() {
   renderNav();
   if (view === 'plan') renderPlan();
   if (view === 'list') renderList();
+  if (view === 'playground') { playground.show(playgroundContext()); loadDeals(); }
   if (view === 'deals') {
     state.dealCat = params.get('aisle') || '';
     renderDeals();
@@ -533,6 +537,7 @@ async function pullList() {
     ls.set(LIST_KEY, myList);
     renderNav();
     if (parseHash().view === 'list') renderList();
+    if (parseHash().view === 'playground') playground.update(playgroundContext());
   } catch {
     // Offline or server down: keep using this device's copy.
   }
@@ -817,6 +822,7 @@ async function loadDeals(force = false) {
     toast(err.message);
   } finally {
     state.dealsLoading = false;
+    playground.update(playgroundContext());
     if (parseHash().view === 'deals') {
       // Re-render without losing your place: keep the search box focused and the scroll position.
       const typing = document.activeElement?.id === 'deal-q' ? document.activeElement.selectionStart : null;
@@ -977,6 +983,7 @@ function renderDeals() {
         <label class="search">${ICON.search}<input id="deal-q" type="search" placeholder="Search berries, chips, chicken…" value="${esc(state.dealQ)}" aria-label="Search deals" autocomplete="off"/></label>
         <button class="filter-pill" data-show-filters type="button" aria-label="Show filters">${ICON.filter}<span class="filter-count"></span></button>
       </div>
+      <div id="deal-crumb"></div>
       <div class="bar-more">
       <div class="selects">
         ${storeMenu(m.chains)}
@@ -985,7 +992,6 @@ function renderDeals() {
           ${Object.entries(SORTS).map(([v, l]) => `<option value="${v}" ${state.dealSort === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select></label>
       </div>
-      <div id="deal-crumb"></div>
       </div>
     </div>
     <div id="deals-body"></div>`;
@@ -1083,7 +1089,7 @@ function setDealBarCollapsed(on) {
   const bar = $('.deal-toolbar');
   if (!bar || state.dealBarCollapsed === on) return;
   if (on) {
-    if (state.storeMenuOpen || bar.querySelector('.bar-more').contains(document.activeElement)) return;
+    if (state.storeMenuOpen || bar.querySelector('.bar-more').contains(document.activeElement) || bar.querySelector('#deal-crumb').contains(document.activeElement)) return;
     sizeDealBar();
   }
   state.dealBarCollapsed = on;
@@ -1105,7 +1111,7 @@ window.addEventListener('scroll', () => {
   if (scrollRun > 24) setDealBarCollapsed(true);
   else if (scrollRun < -24) setDealBarCollapsed(false);
 }, { passive: true });
-document.addEventListener('focusin', (e) => { if (e.target.closest?.('.deal-toolbar .bar-more')) setDealBarCollapsed(false); });
+document.addEventListener('focusin', (e) => { if (e.target.closest?.('.deal-toolbar .bar-more, .deal-toolbar #deal-crumb')) setDealBarCollapsed(false); });
 
 /** Shown while this week's ads are still loading: deals appear store by store as each finishes. */
 function loadingNote() {
@@ -1643,6 +1649,10 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', paintOnline);
 
 // ---------- boot ----------
+function playgroundContext() { return { zip: state.zip, loading: state.dealsLoading || !!state.job?.running }; }
+const playground = createPlayground($('#playground-view'), {
+  getDeals: () => state.deals, getList: () => myList,
+});
 paintOnline();
 paintInstall();
 route();

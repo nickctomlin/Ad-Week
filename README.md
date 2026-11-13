@@ -40,7 +40,9 @@ The Setup tab will then show Kroger stores from the official API, and plans will
 
 ## Using the app
 
-Four tabs (Setup, Deals, List, Flyers): a bottom bar on phones, a top bar on desktop. The meal planner (Plan tab) is switched off for now; set `FEATURES.plan = true` in `public/app.js` to bring it back.
+Five tabs (Setup, Deals, List, Flyers, Playground): a bottom bar on phones, a top bar on desktop. The meal planner (Plan tab) is switched off for now; set `FEATURES.plan = true` in `public/app.js` to bring it back.
+
+- **Playground.** An interactive cost and price-history explorer at `#playground`. Start with a copy of your shopping list or a basket of real current deals. Edit quantities and per-unit prices, change the basket multiplier, simulate a ±30% price shift, and set a spending target. The total, budget meter, regular-price comparison, and aisle/store donut chart update immediately. Tap a chart category to filter the basket; choose an item to explore its recorded price history over 4, 8, or 12 calendar weeks. Tap a recorded week to try that price in your scenario. Search to add more real deals, exclude or remove items, shuffle a new basket, or reset edits. Experiments are saved on this device, separately from your shopping list and the original ads. Missing history is never fabricated, and regular-price savings only include items with a known regular price.
 
 - **Setup.** ZIP and radius, then pick stores. Each chain shows Live, Stale or No data, plus when it was updated and how long its ad is valid.
 - **Plan.** Two styles, picked on Setup:
