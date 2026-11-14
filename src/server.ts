@@ -14,11 +14,13 @@ import { CHAINS, CHAIN_BY_ID } from './sources/types.ts';
 import { DEPARTMENTS } from './departments.ts';
 import { seedHistoryFromCache } from './history.ts';
 import { getProductImage } from './images.ts';
+import { diningSnapshot, startDiningRefresh } from './dining/service.ts';
 
 const PUBLIC = join(config.root, 'public');
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml',
   '.png': 'image/png', '.webmanifest': 'application/manifest+json',
+  '.json': 'application/json; charset=utf-8',
 };
 const RADII = [5, 10, 15, 25];
 // Saved collections (rows in the `lists` table). 'default' is the shopping list's original id.
@@ -57,6 +59,13 @@ function jobView(zip: string) {
 async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   const zip = url.searchParams.get('zip') || '';
   switch (`${req.method} ${url.pathname}`) {
+    case 'GET /api/dining':
+    case 'POST /api/dining/refresh': {
+      const radius = parseRadius(url.searchParams.get('radius'));
+      const place = await geocodeZip(zip);
+      startDiningRefresh(place, radius, req.method === 'POST');
+      return send(res, 200, diningSnapshot(place, radius));
+    }
     case 'GET /api/product-image': {
       const image = await getProductImage(url.searchParams.get('path') || '');
       res.writeHead(200, {

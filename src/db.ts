@@ -136,6 +136,12 @@ CREATE TABLE IF NOT EXISTS product_images (
   content_type TEXT NOT NULL,
   fetched_at INTEGER NOT NULL
 );
+
+-- Independent restaurant offers and area discovery cache; grocery records are unaffected.
+CREATE TABLE IF NOT EXISTS dining_cache (
+  key TEXT PRIMARY KEY,
+  body TEXT NOT NULL
+);
 `);
 
 // Bump when deal parsing changes (prices, units, departments). Saved deals are then rebuilt on the next

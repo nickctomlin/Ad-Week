@@ -3,6 +3,8 @@ import { scoreDeal, dollarsSaved, lowestLabel } from './scoring.js';
 import { matchesWatch, suggestWatch, watchKey } from './watch.js';
 import { dealShareData, shareDeal } from './sharing.js';
 import { imageUrl } from './images.js';
+import { createDining } from './dining.js';
+import { createSpecials } from './specials.js';
 
 // ---------- utilities ----------
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -48,6 +50,8 @@ const ICON = {
   back: svg('<path d="M15 18l-6-6 6-6"/>'),
   eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   share: svg('<path d="M12 16V3m-4 4 4-4 4 4M8 11H5v10h14V11h-3"/>'),
+  food: svg('<path d="M4 3v6m3-6v6m3-6v6M4 7h6M7 9v12M19 3c-3 3-4 7-4 10h4m0-10v18"/>'),
+  specials: svg('<path d="M4 3h16l-8 9-8-9Zm8 9v9m-4 0h8M7 6h10"/>'),
 };
 
 // The meal planner is switched off for now. Set plan: true to bring back the Plan tab and budget form.
@@ -59,6 +63,8 @@ const TABS = [
   { id: 'deals', label: 'Deals' },
   { id: 'list', label: 'List' },
   { id: 'flyers', label: 'Flyers' },
+  { id: 'food', label: 'Fast Food' },
+  { id: 'specials', label: 'Specials' },
 ].filter((t) => FEATURES.plan || t.id !== 'plan');
 
 async function api(path, opts = {}) {
@@ -129,6 +135,8 @@ function route() {
   renderNav();
   if (view === 'plan') renderPlan();
   if (view === 'list') renderList();
+  if (view === 'food') dining.show(); else dining.hide();
+  if (view === 'specials') specials.show(); else specials.hide();
   if (view === 'deals') {
     state.dealCat = params.get('aisle') || '';
     renderDeals();
@@ -1644,6 +1652,8 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', paintOnline);
 
 // ---------- boot ----------
+const dining = createDining($('#food-view'), () => ({ zip: state.zip || $('#zip').value.trim(), radius: state.radius }));
+const specials = createSpecials($('#specials-view'));
 paintOnline();
 paintInstall();
 route();

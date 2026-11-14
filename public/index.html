@@ -15,6 +15,10 @@
   <meta name="apple-mobile-web-app-title" content="Ad Week" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="dining.css" />
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="vendor/leaflet/MarkerCluster.css" />
+  <link rel="stylesheet" href="specials.css" />
 </head>
 <body>
   <!-- App bar -->
@@ -117,10 +121,12 @@
     <section class="view hidden" data-view="deals" aria-labelledby="h-deals"><div id="deals-view"></div></section>
     <!-- FLYERS -->
     <section class="view hidden" data-view="flyers" aria-labelledby="h-flyers"><div id="flyers-view"></div></section>
+    <section class="view hidden" data-view="food" aria-labelledby="h-food"><div id="food-view"></div></section>
+    <section class="view hidden" data-view="specials" aria-labelledby="h-specials"><div id="specials-view"></div></section>
 
     <footer class="foot">
-      Prices come from each chain's current weekly ad (via Flipp) and, when configured, the official Kroger API.
-      Tap any item to see the original ad and verify the price. Personal proof of concept.
+      Grocery prices come from weekly ads and the official Kroger API; restaurant offers come from public official pages.
+      Use each item's source link to verify prices and terms. Personal proof of concept.
     </footer>
   </main>
 

@@ -23,6 +23,7 @@ export const config = {
   krogerMaxStores: Number(env.KROGER_MAX_STORES || 3),
   // Coverage: ZIPs must be within this many miles of downtown Dallas.
   coverageMiles: Number(env.COVERAGE_MILES || 60),
+  diningOverpassUrl: env.DINING_OVERPASS_URL || 'https://ovp.dresel.systems/api-na/interpreter',
 };
 
 export const hasKroger = () => !!(config.krogerClientId && config.krogerClientSecret);
