@@ -99,7 +99,16 @@
 #special-map-status:not(:empty) { padding-bottom: 12px; }
 #special-location-status { margin: 0; padding: 0 13px; color: var(--text-2); font-size: .75rem; line-height: 1.6; }
 #special-location-status:not(:empty) { padding-bottom: 13px; }
-.special-map-list { height: 610px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 1px 5px 4px 1px; scrollbar-width: thin; position: relative; }
+.special-map-results { min-width: 0; }
+.special-map-results-head { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 0 1px 10px; }
+.special-map-results-head p { margin: 0; color: var(--text-2); font-size: .79rem; font-weight: 650; }
+#special-map-updating { min-height: 1.3em; color: var(--muted); font-size: .7rem; }
+.special-map-list { height: 570px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 1px 5px 4px 1px; scrollbar-width: thin; position: relative; overflow-anchor: none; }
+.special-map-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin-top: 8px; }
+.special-map-pagination:empty { display: none; }
+.special-map-pagination span { font-size: .74rem; color: var(--muted); white-space: nowrap; }
+.special-map-pagination button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--accent); font: inherit; font-size: .77rem; cursor: pointer; }
+.special-map-pagination button:disabled { opacity: .45; cursor: default; }
 .special-map-list .special-card { flex: none; }
 .special-map-list .special-selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface)); }
 .special-compact-deal { font-size: .8rem; margin: 0 0 14px; color: var(--text-2); }

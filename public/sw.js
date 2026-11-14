@@ -2,13 +2,14 @@
 // with no signal. Strategy for same-site GET requests: network first (so you always get fresh data and new
 // versions when online), saving a copy; fall back to the saved copy when offline or when the network takes
 // longer than a few seconds (weak in-store signal). Writes (PUT/POST) and other sites go straight through.
-const VERSION = 'adweek-specials-location-v1';
+const VERSION = 'adweek-specials-viewport-v1';
 const SHELL = [
   '/', '/index.html', '/app.js', '/scoring.js', '/watch.js', '/sharing.js', '/styles.css', '/manifest.webmanifest',
   '/images.js',
   '/dining.js', '/dining-model.js', '/dining.css',
   '/specials.js', '/specials-model.js', '/specials.css', '/specials-data/plano-happy-hours.json',
   '/specials-location.js',
+  '/specials-map-list.js',
   '/vendor/leaflet/leaflet.js', '/vendor/leaflet/leaflet.css',
   '/vendor/leaflet/leaflet.markercluster.js', '/vendor/leaflet/MarkerCluster.css',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',

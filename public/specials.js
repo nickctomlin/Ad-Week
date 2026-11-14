@@ -1,5 +1,6 @@
 import { WEEKDAYS, chicagoWeekday, dailySpecialOnDay, happyHourDays, filterSpecials, directionsUrl, safeUrl } from './specials-model.js';
 import { getCurrentLocation, formatLocationAccuracy, placeUserLocation } from './specials-location.js';
+import { createMapListController } from './specials-map-list.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const svg = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
@@ -34,6 +35,7 @@ function loadLeaflet() {
 export function createSpecials(root) {
   let data, loading = false, mounted = false, visible = false, map, markers, L, selectedId = '', mapRequest = 0;
   let userMarker, userAccuracy;
+  let mapList, mapVenues = [], markerKey = '', markerById = new Map();
   let query = '', day = '', kind = '', savedOnly = false, view = 'map', saved = [];
   try { const value = JSON.parse(localStorage.getItem('adweek:specials:saved')); if (Array.isArray(value)) saved = value.filter((id) => typeof id === 'string'); } catch {}
   const $ = (selector) => root.querySelector(selector);
@@ -49,12 +51,12 @@ export function createSpecials(root) {
       <div class="special-browser"><div class="special-toolbar"><label class="special-search">${icons.search}<input id="special-query" type="search" placeholder="Search spots, tacos, margaritas…" aria-label="Search specials"/></label><select id="special-kind" aria-label="Type of special"><option value="">All specials</option><option value="happy-hour">Happy hours</option><option value="daily">Daily specials</option></select><div class="special-view-toggle" aria-label="Specials view"><button type="button" data-special-view="list" aria-pressed="false">${icons.list}<span>List</span></button><button type="button" data-special-view="map" aria-pressed="true">${icons.pin}<span>Map</span></button></div></div>
       <div class="special-filter-row"><div class="special-days" aria-label="Filter specials by day"><button type="button" data-special-day="" aria-pressed="true">Any day</button><button type="button" data-special-day="${chicagoWeekday()}" data-special-today aria-pressed="false">Today</button>${[1, 2, 3, 4, 5, 6, 0].map((d) => `<button type="button" data-special-day="${d}" aria-pressed="false">${WEEKDAYS[d].slice(0, 3)}</button>`).join('')}</div><button type="button" class="special-saved-filter" data-special-saved aria-pressed="false">☆ Saved</button></div>
       <div class="special-results-heading"><p id="special-summary" role="status" aria-live="polite">Loading your local guide…</p><button type="button" class="special-reset" data-special-reset>Reset filters</button></div>
-      <div id="special-error" role="status"></div><div class="special-map-layout hidden" id="special-map-layout"><div class="special-map-frame"><div class="special-map-top"><span>${icons.pin} <b>Your next spot is around here.</b></span><div class="special-map-actions"><button type="button" id="special-locate" data-special-locate aria-label="Go to my location" disabled>${icons.locate}<span>My location</span></button><button type="button" data-special-fit>Show all results</button></div></div><div id="special-map" class="special-map" role="region" aria-label="Map of restaurant specials" tabindex="0"></div><div class="special-map-note"><span class="special-pin-key"></span> Select a pin to explore <span>Drag to move · + / − to zoom</span></div><p id="special-map-status" role="status"></p><p id="special-location-status" role="status" aria-live="polite"></p></div><div id="special-map-list" class="special-map-list" aria-label="Restaurants on map"></div></div>
+      <div id="special-error" role="status"></div><div class="special-map-layout hidden" id="special-map-layout"><div class="special-map-frame"><div class="special-map-top"><span>${icons.pin} <b>Your next spot is around here.</b></span><div class="special-map-actions"><button type="button" id="special-locate" data-special-locate aria-label="Go to my location" disabled>${icons.locate}<span>My location</span></button><button type="button" data-special-fit>Show all results</button></div></div><div id="special-map" class="special-map" role="region" aria-label="Map of restaurant specials" tabindex="0"></div><div class="special-map-note"><span class="special-pin-key"></span> Select a pin to explore <span>Drag to move · + / − to zoom</span></div><p id="special-map-status" role="status"></p><p id="special-location-status" role="status" aria-live="polite"></p></div><div class="special-map-results"><div class="special-map-results-head"><p id="special-map-count" role="status" aria-live="polite">Finding spots in this map area…</p><span id="special-map-updating"></span></div><div id="special-map-list" class="special-map-list" aria-label="Restaurants visible in this map area" aria-busy="true"></div><div id="special-map-pagination" class="special-map-pagination" role="group" aria-label="Restaurant result pages"></div></div></div>
       <div id="special-list" class="special-grid"></div></div>
       <p class="special-disclaimer" id="special-disclaimer">A guide for planning your visit. Hours, prices, and participation can change; check the linked source before heading out.</p>
       <dialog class="special-dialog" id="special-dialog" aria-labelledby="special-dialog-title"><div id="special-dialog-body"></div></dialog>`;
-    $('#special-query').addEventListener('input', (event) => { query = event.target.value; draw(); });
-    $('#special-kind').addEventListener('change', (event) => { kind = event.target.value; draw(); });
+    $('#special-query').addEventListener('input', (event) => { query = event.target.value; draw({ fit: true }); });
+    $('#special-kind').addEventListener('change', (event) => { kind = event.target.value; draw({ fit: true }); });
     root.addEventListener('click', onClick);
     $('#special-dialog').addEventListener('click', (event) => { if (event.target === $('#special-dialog')) $('#special-dialog').close(); });
     mounted = true;
@@ -72,7 +74,7 @@ export function createSpecials(root) {
     return `<article class="special-card${selectedId === venue.id ? ' special-selected' : ''}" data-special-card="${esc(venue.id)}"><div class="special-card-top"><span class="special-category">${esc(venue.category)}</span>${saveButton(venue)}</div><h2><button type="button" data-special-detail="${esc(venue.id)}">${esc(venue.name)}</button></h2><p class="special-address">${esc(venue.address.replace(/, TX(?:\s+\d{5})?$/, ''))}</p><div class="special-offer-type">${icons.clock}<span>${offer.label}</span></div><p class="special-schedule">${esc(offer.schedule || 'Check source for schedule')}</p>${compact ? `<p class="special-compact-deal">${esc(offer.deals[0] || 'See the full specials and schedule.')}</p>` : `<ul class="special-deals">${offer.deals.map((deal) => `<li>${esc(deal)}</li>`).join('')}</ul>`}<div class="special-card-bottom"><button type="button" class="special-details-btn" data-special-detail="${esc(venue.id)}">View specials <span aria-hidden="true">↗</span></button>${venue.location ? `<button class="special-on-map" type="button" data-special-pin="${esc(venue.id)}" aria-label="See ${esc(venue.name)} on map">${icons.pin}<span>On map</span></button>` : link(directionsUrl(venue), 'Directions', 'special-on-map')}</div></article>`;
   }
 
-  function draw() {
+  function draw({ fit = false, focusId = '' } = {}) {
     if (!data) return;
     const venues = results();
     $('#special-total').textContent = `${data.venues.length} local spots`;
@@ -86,16 +88,33 @@ export function createSpecials(root) {
     $('#special-list').classList.toggle('hidden', view === 'map');
     const empty = '<div class="special-empty"><span aria-hidden="true">⌕</span><h2>No spots found</h2><p>Try another day, a different search, or your full local guide.</p><button type="button" class="btn primary" data-special-reset>Show all spots</button></div>';
     if (!venues.some((venue) => venue.id === selectedId)) selectedId = '';
-    if (view === 'list') $('#special-list').innerHTML = venues.length ? venues.map((venue) => card(venue)).join('') : empty;
-    else { $('#special-map-list').innerHTML = venues.length ? venues.map((venue) => card(venue, true)).join('') : empty; drawMap(venues); }
+    if (view === 'list') { mapList?.suspend(); $('#special-list').innerHTML = venues.length ? venues.map((venue) => card(venue)).join('') : empty; }
+    else { if ($('#special-list').childElementCount) $('#special-list').replaceChildren(); mapVenues = venues; drawMap(venues, { fit, focusId }); }
   }
 
-  async function drawMap(venues) {
+  function renderMapList({ venues, total, page, pages, start, end, resetScroll, focusId }) {
+    const list = $('#special-map-list'), previousScroll = list.scrollTop;
+    $('#special-map-count').textContent = `${total} ${total === 1 ? 'spot' : 'spots'} in this map area`;
+    list.innerHTML = venues.length ? venues.map((venue) => card(venue, true)).join('')
+      : mapVenues.length ? '<div class="special-empty"><h2>No spots in this map area</h2><p>Move the map to explore, or return to all matching restaurants.</p><button type="button" class="btn primary" data-special-fit>Show all results</button></div>'
+      : '<div class="special-empty"><h2>No matching spots</h2><p>Try another day or a different search.</p><button type="button" class="btn primary" data-special-reset>Reset filters</button></div>';
+    $('#special-map-pagination').innerHTML = pages > 1 ? `<button type="button" id="special-map-prev" data-special-map-page="${page - 1}" ${page === 0 ? 'disabled' : ''}>Previous</button><span>${start}–${end} of ${total}</span><button type="button" id="special-map-next" data-special-map-page="${page + 1}" ${page === pages - 1 ? 'disabled' : ''}>Next</button>` : '';
+    list.scrollTop = resetScroll ? 0 : previousScroll;
+    if (focusId) scrollMapCard(focusId);
+  }
+
+  function scrollMapCard(id) {
+    const list = $('#special-map-list'), card = list.querySelector(`[data-special-card="${id}"]`);
+    if (card) list.scrollTop += card.getBoundingClientRect().top - list.getBoundingClientRect().top;
+  }
+
+  async function drawMap(venues, { fit = false, focusId = '' } = {}) {
     const token = ++mapRequest;
     try {
       L = await loadLeaflet();
       if (token !== mapRequest || view !== 'map' || !visible) return;
-      if (!map) {
+      const firstMap = !map;
+      if (firstMap) {
         map = L.map($('#special-map'), { scrollWheelZoom: false, zoomControl: true }).setView([33.047, -96.769], 12);
         // Standard OSM raster tiles; only the tile pane is tinted by our theme.
         // No third-party tiles are prefetched by the service worker.
@@ -106,30 +125,44 @@ export function createSpecials(root) {
           iconCreateFunction: (cluster) => L.divIcon({ className: 'special-map-cluster', html: `<span aria-label="${cluster.getChildCount()} restaurants; select to zoom in">${cluster.getChildCount()}</span>`, iconSize: [42, 42] }),
         }).addTo(map);
         $('#special-locate').disabled = false;
+        mapList = createMapListController({ getBounds: () => map.getBounds(), render: renderMapList,
+          pending: (value) => { $('#special-map-list').setAttribute('aria-busy', String(value)); $('#special-map-updating').textContent = value ? 'Updates after the map stops…' : ''; },
+        });
+        map.on('movestart zoomstart', () => mapList.moving());
+        map.on('moveend zoomend', () => mapList.settled());
       }
+      mapList.resume();
       map.invalidateSize();
-      markers.clearLayers();
-      let selectedMarker;
-      for (const venue of venues.filter((venue) => venue.location)) {
-        const selected = venue.id === selectedId;
-        const marker = L.marker([venue.location.lat, venue.location.lng], {
-          title: venue.name, alt: venue.name,
-          icon: L.divIcon({ className: `special-map-marker${selected ? ' active' : ''}`, html: `<span>${icons.glass}</span>`, iconSize: [36, 42], iconAnchor: [18, 42], popupAnchor: [0, -40] }),
-        }).addTo(markers);
-        marker.bindPopup(`<div class="special-popup"><small>${esc(venue.category)}</small><b>${esc(venue.name)}</b><p>${esc(venue.address)}</p><p>${esc(preview(venue).schedule)}</p><button type="button" data-special-detail="${esc(venue.id)}">View specials ↗</button>${link(directionsUrl(venue), 'Directions ↗')}</div>`, { maxWidth: 290 });
-        marker.on('click', () => { selectedId = venue.id; highlight(); const card = root.querySelector(`[data-special-card="${venue.id}"]`); if (card) $('#special-map-list').scrollTop = card.offsetTop - $('#special-map-list').offsetTop; });
-        if (selected) selectedMarker = marker;
+      const nextMarkerKey = JSON.stringify([day, kind, venues.map((venue) => venue.id)]);
+      if (nextMarkerKey !== markerKey) {
+        markerKey = nextMarkerKey;
+        markers.clearLayers();
+        markerById.clear();
+        for (const venue of venues.filter((venue) => venue.location)) {
+          const selected = venue.id === selectedId;
+          const marker = L.marker([venue.location.lat, venue.location.lng], {
+            title: venue.name, alt: venue.name,
+            icon: L.divIcon({ className: `special-map-marker${selected ? ' active' : ''}`, html: `<span>${icons.glass}</span>`, iconSize: [36, 42], iconAnchor: [18, 42], popupAnchor: [0, -40] }),
+          }).addTo(markers);
+          marker.bindPopup(`<div class="special-popup"><small>${esc(venue.category)}</small><b>${esc(venue.name)}</b><p>${esc(venue.address)}</p><p>${esc(preview(venue).schedule)}</p><button type="button" data-special-detail="${esc(venue.id)}">View specials ↗</button>${link(directionsUrl(venue), 'Directions ↗')}</div>`, { maxWidth: 290 });
+          marker.on('click', () => { selectedId = venue.id; highlight(); mapList.reveal(venue.id); });
+          markerById.set(venue.id, marker);
+        }
       }
-      if (selectedMarker) markers.zoomToShowLayer(selectedMarker, () => { selectedMarker.openPopup(); highlight(); });
-      else fitMap(venues);
+      mapList.setVenues(venues, JSON.stringify([day, kind, saved]));
+      highlight();
+      const selectedMarker = markerById.get(focusId);
+      if (selectedMarker) markers.zoomToShowLayer(selectedMarker, () => { selectedMarker.openPopup(); highlight(); mapList.reveal(focusId); });
+      else if (firstMap || fit) fitMap(venues);
       const missing = venues.filter((venue) => !venue.location).length;
       if (missing) $('#special-map-status').textContent = `${missing} ${missing === 1 ? 'spot needs' : 'spots need'} an address check; use Directions in the list.`;
     } catch (error) { $('#special-map-status').innerHTML = `${esc(error.message)} <button type="button" data-special-map-retry>Retry map</button>`; }
   }
 
-  function fitMap(venues = results()) {
+  function fitMap(venues = mapVenues) {
     const points = venues.filter((v) => v.location).map((v) => [v.location.lat, v.location.lng]);
     if (map && points.length) map.fitBounds(points, { padding: [38, 38], maxZoom: 15, animate: false });
+    mapList?.schedule();
   }
   async function locateMe() {
     const button = $('#special-locate');
@@ -182,19 +215,27 @@ export function createSpecials(root) {
       draw(); return;
     }
     if ('specialPin' in button.dataset) {
-      selectedId = button.dataset.specialPin; view = 'map'; draw();
+      selectedId = button.dataset.specialPin; view = 'map'; draw({ focusId: selectedId });
       $('#special-map-layout').scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
     }
     if ('specialFit' in button.dataset) { selectedId = ''; highlight(); map?.closePopup(); fitMap(); return; }
     if ('specialLocate' in button.dataset) { locateMe(); return; }
     if ('specialMapRetry' in button.dataset) { drawMap(results()); return; }
+    if ('specialMapPage' in button.dataset) {
+      const direction = button.id;
+      mapList?.setPage(Number(button.dataset.specialMapPage));
+      const next = $('#' + direction);
+      const target = next && !next.disabled ? next : $(direction === 'special-map-next' ? '#special-map-prev' : '#special-map-next');
+      target?.focus({ preventScroll: true });
+      return;
+    }
     if ('specialView' in button.dataset) view = button.dataset.specialView;
     else if ('specialDay' in button.dataset) { day = button.dataset.specialDay; selectedId = ''; }
     else if ('specialSaved' in button.dataset) { savedOnly = !savedOnly; selectedId = ''; }
     else if ('specialReset' in button.dataset) { query = ''; day = ''; kind = ''; savedOnly = false; selectedId = ''; $('#special-query').value = ''; $('#special-kind').value = ''; }
     else if ('specialRetry' in button.dataset) { load(); return; }
     else return;
-    draw();
+    draw({ fit: !('specialView' in button.dataset) });
     if (button.dataset.specialView === 'map' && matchMedia('(max-width: 800px)').matches) $('#special-map-layout').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -212,6 +253,6 @@ export function createSpecials(root) {
   }
   return {
     show() { visible = true; if (!mounted) mount(); if (!data) load(); else draw(); },
-    hide() { visible = false; mapRequest++; if (mounted && $('#special-dialog').open) $('#special-dialog').close(); },
+    hide() { visible = false; mapRequest++; mapList?.suspend(); if (mounted && $('#special-dialog').open) $('#special-dialog').close(); },
   };
 }
