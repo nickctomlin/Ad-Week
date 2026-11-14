@@ -1,6 +1,7 @@
 import { WEEKDAYS, chicagoWeekday, dailySpecialOnDay, happyHourDays, filterSpecials, directionsUrl, safeUrl } from './specials-model.js';
 import { getCurrentLocation, formatLocationAccuracy, placeUserLocation } from './specials-location.js';
 import { createMapListController } from './specials-map-list.js';
+import { lockPageScroll } from './scroll-lock.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const svg = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
@@ -11,6 +12,8 @@ const icons = {
   search: svg('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>'),
   clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   locate: svg('<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>'),
+  expand: svg('<path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/>'),
+  collapse: svg('<path d="M3 8h5V3M21 8h-5V3M8 21v-5H3M16 21v-5h5"/>'),
 };
 
 let leafletPromise;
@@ -36,6 +39,8 @@ export function createSpecials(root) {
   let data, loading = false, mounted = false, visible = false, map, markers, L, selectedId = '', mapRequest = 0;
   let userMarker, userAccuracy;
   let mapList, mapVenues = [], markerKey = '', markerById = new Map();
+  let releasePageScroll;
+  let releaseFullscreenScroll;
   let query = '', day = '', kind = '', savedOnly = false, view = 'map', saved = [];
   try { const value = JSON.parse(localStorage.getItem('adweek:specials:saved')); if (Array.isArray(value)) saved = value.filter((id) => typeof id === 'string'); } catch {}
   const $ = (selector) => root.querySelector(selector);
@@ -51,14 +56,17 @@ export function createSpecials(root) {
       <div class="special-browser"><div class="special-toolbar"><label class="special-search">${icons.search}<input id="special-query" type="search" placeholder="Search spots, tacos, margaritas…" aria-label="Search specials"/></label><select id="special-kind" aria-label="Type of special"><option value="">All specials</option><option value="happy-hour">Happy hours</option><option value="daily">Daily specials</option></select><div class="special-view-toggle" aria-label="Specials view"><button type="button" data-special-view="list" aria-pressed="false">${icons.list}<span>List</span></button><button type="button" data-special-view="map" aria-pressed="true">${icons.pin}<span>Map</span></button></div></div>
       <div class="special-filter-row"><div class="special-days" aria-label="Filter specials by day"><button type="button" data-special-day="" aria-pressed="true">Any day</button><button type="button" data-special-day="${chicagoWeekday()}" data-special-today aria-pressed="false">Today</button>${[1, 2, 3, 4, 5, 6, 0].map((d) => `<button type="button" data-special-day="${d}" aria-pressed="false">${WEEKDAYS[d].slice(0, 3)}</button>`).join('')}</div><button type="button" class="special-saved-filter" data-special-saved aria-pressed="false">☆ Saved</button></div>
       <div class="special-results-heading"><p id="special-summary" role="status" aria-live="polite">Loading your local guide…</p><button type="button" class="special-reset" data-special-reset>Reset filters</button></div>
-      <div id="special-error" role="status"></div><div class="special-map-layout hidden" id="special-map-layout"><div class="special-map-frame"><div class="special-map-top"><span>${icons.pin} <b>Your next spot is around here.</b></span><div class="special-map-actions"><button type="button" id="special-locate" data-special-locate aria-label="Go to my location" disabled>${icons.locate}<span>My location</span></button><button type="button" data-special-fit>Show all results</button></div></div><div id="special-map" class="special-map" role="region" aria-label="Map of restaurant specials" tabindex="0"></div><div class="special-map-note"><span class="special-pin-key"></span> Select a pin to explore <span>Drag to move · + / − to zoom</span></div><p id="special-map-status" role="status"></p><p id="special-location-status" role="status" aria-live="polite"></p></div><div class="special-map-results"><div class="special-map-results-head"><p id="special-map-count" role="status" aria-live="polite">Finding spots in this map area…</p><span id="special-map-updating"></span></div><div id="special-map-list" class="special-map-list" aria-label="Restaurants visible in this map area" aria-busy="true"></div><div id="special-map-pagination" class="special-map-pagination" role="group" aria-label="Restaurant result pages"></div></div></div>
+      <div id="special-error" role="status"></div><div class="special-map-layout hidden" id="special-map-layout"><div class="special-map-frame"><div class="special-map-top"><span>${icons.pin} <b>Your next spot is around here.</b></span><div class="special-map-actions"><button type="button" id="special-locate" data-special-locate aria-label="Go to my location" disabled>${icons.locate}<span>My location</span></button><button type="button" data-special-fit>Show all results</button><button type="button" id="special-expand" data-special-fullscreen aria-label="Open map full screen" aria-controls="special-map-fullscreen" aria-haspopup="dialog" aria-pressed="false" title="Full screen" disabled>${icons.expand}</button></div></div><div id="special-map" class="special-map" role="region" aria-label="Map of restaurant specials" tabindex="0"></div><div class="special-map-note"><span class="special-pin-key"></span> Select a pin to explore <span><span class="special-zoom-desktop">Drag to move · + / − to zoom</span><span class="special-zoom-touch">Drag to move · Pinch to zoom</span></span></div><p id="special-map-status" role="status"></p><p id="special-location-status" role="status" aria-live="polite"></p></div><div class="special-map-results"><div class="special-map-results-head"><p id="special-map-count" role="status" aria-live="polite">Finding spots in this map area…</p><span id="special-map-updating"></span></div><div id="special-map-list" class="special-map-list" aria-label="Restaurants visible in this map area" aria-busy="true"></div><div id="special-map-pagination" class="special-map-pagination" role="group" aria-label="Restaurant result pages"></div></div></div>
       <div id="special-list" class="special-grid"></div></div>
       <p class="special-disclaimer" id="special-disclaimer">A guide for planning your visit. Hours, prices, and participation can change; check the linked source before heading out.</p>
+      <dialog class="special-map-dialog" id="special-map-fullscreen" aria-label="Full screen restaurant map"></dialog>
       <dialog class="special-dialog" id="special-dialog" aria-labelledby="special-dialog-title"><div id="special-dialog-body"></div></dialog>`;
     $('#special-query').addEventListener('input', (event) => { query = event.target.value; draw({ fit: true }); });
     $('#special-kind').addEventListener('change', (event) => { kind = event.target.value; draw({ fit: true }); });
     root.addEventListener('click', onClick);
-    $('#special-dialog').addEventListener('click', (event) => { if (event.target === $('#special-dialog')) $('#special-dialog').close(); });
+    $('#special-dialog').addEventListener('click', (event) => { if (event.target === $('#special-dialog')) closeDetail(); });
+    $('#special-dialog').addEventListener('close', () => { if (!$('#special-dialog').open) { releasePageScroll?.(); releasePageScroll = null; } });
+    $('#special-map-fullscreen').addEventListener('close', () => { if (!$('#special-map-fullscreen').open) finishFullscreen(); });
     mounted = true;
   }
 
@@ -115,7 +123,7 @@ export function createSpecials(root) {
       if (token !== mapRequest || view !== 'map' || !visible) return;
       const firstMap = !map;
       if (firstMap) {
-        map = L.map($('#special-map'), { scrollWheelZoom: false, zoomControl: true }).setView([33.047, -96.769], 12);
+        map = L.map($('#special-map'), { scrollWheelZoom: false, zoomControl: true, touchZoom: true }).setView([33.047, -96.769], 12);
         // Standard OSM raster tiles; only the tile pane is tinted by our theme.
         // No third-party tiles are prefetched by the service worker.
         const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>' }).addTo(map);
@@ -125,13 +133,14 @@ export function createSpecials(root) {
           iconCreateFunction: (cluster) => L.divIcon({ className: 'special-map-cluster', html: `<span aria-label="${cluster.getChildCount()} restaurants; select to zoom in">${cluster.getChildCount()}</span>`, iconSize: [42, 42] }),
         }).addTo(map);
         $('#special-locate').disabled = false;
+        $('#special-expand').disabled = false;
         mapList = createMapListController({ getBounds: () => map.getBounds(), render: renderMapList,
           pending: (value) => { $('#special-map-list').setAttribute('aria-busy', String(value)); $('#special-map-updating').textContent = value ? 'Updates after the map stops…' : ''; },
         });
         map.on('movestart zoomstart', () => mapList.moving());
         map.on('moveend zoomend', () => mapList.settled());
       }
-      mapList.resume();
+      if ($('#special-map-fullscreen').open) mapList.suspend(); else mapList.resume();
       map.invalidateSize();
       const nextMarkerKey = JSON.stringify([day, kind, venues.map((venue) => venue.id)]);
       if (nextMarkerKey !== markerKey) {
@@ -163,6 +172,44 @@ export function createSpecials(root) {
     const points = venues.filter((v) => v.location).map((v) => [v.location.lat, v.location.lng]);
     if (map && points.length) map.fitBounds(points, { padding: [38, 38], maxZoom: 15, animate: false });
     mapList?.schedule();
+  }
+
+  function toggleFullscreen() {
+    const dialog = $('#special-map-fullscreen');
+    if (dialog.open) { closeFullscreen(); return; }
+    if (!map) return;
+    releaseFullscreenScroll = lockPageScroll();
+    dialog.append($('.special-map-frame'));
+    try { dialog.showModal(); }
+    catch (error) { finishFullscreen(); throw error; }
+    mapList.suspend();
+    paintFullscreenButton(true);
+    map.invalidateSize({ animate: false });
+    $('#special-expand').focus({ preventScroll: true });
+  }
+
+  function paintFullscreenButton(expanded) {
+    const button = $('#special-expand');
+    button.innerHTML = expanded ? `${icons.collapse}<span>Exit</span>` : icons.expand;
+    button.setAttribute('aria-label', expanded ? 'Exit full screen map' : 'Open map full screen');
+    button.setAttribute('aria-pressed', String(expanded));
+    button.title = expanded ? 'Exit full screen' : 'Full screen';
+  }
+
+  function finishFullscreen(restorePosition = true) {
+    if (!releaseFullscreenScroll) return;
+    $('#special-map-layout').prepend($('.special-map-frame'));
+    releaseFullscreenScroll(restorePosition);
+    releaseFullscreenScroll = null;
+    paintFullscreenButton(false);
+    map.invalidateSize({ animate: false });
+    if (visible && view === 'map') mapList.resume(); else mapList.suspend();
+    if (restorePosition) $('#special-expand').focus({ preventScroll: true });
+  }
+
+  function closeFullscreen(restorePosition = true) {
+    $('#special-map-fullscreen').close();
+    finishFullscreen(restorePosition);
   }
   async function locateMe() {
     const button = $('#special-locate');
@@ -196,13 +243,24 @@ export function createSpecials(root) {
   function detail(venue) {
     const hh = venue.happy_hour;
     $('#special-dialog-body').innerHTML = `<div class="special-dialog-top"><span class="special-eyebrow">THE PLANO EDIT</span><div class="special-dialog-controls">${saveButton(venue)}<button type="button" class="icon-btn" data-special-close aria-label="Close restaurant details">✕</button></div></div><p class="special-category">${esc(venue.category)}</p><h2 id="special-dialog-title">${esc(venue.name)}</h2><p class="special-address">${esc(venue.address)}</p><div class="special-dialog-actions">${link(directionsUrl(venue), `${icons.pin} Get directions`, 'btn primary')}${venue.phone ? `<a class="btn" href="tel:${esc(venue.phone.replace(/[^+\d]/g, ''))}">Call restaurant</a>` : ''}</div>${hh ? `<section class="special-detail-section"><h3>${icons.glass} Happy hour</h3><p class="special-detail-days">${esc(hh.days)}</p><p class="special-detail-time">${esc(hh.time)}</p><ul>${[...new Set(hh.deals)].map((deal) => `<li>${esc(deal)}</li>`).join('')}</ul></section>` : ''}${venue.daily_specials.length ? `<section class="special-detail-section"><h3>Daily specials</h3><div class="special-daily-list">${venue.daily_specials.map((special) => `<div><b>${esc(special.day)}</b><p>${esc(special.special)}</p></div>`).join('')}</div></section>` : ''}<div class="special-detail-source"><p>Hours and prices may change. Confirm with the restaurant before visiting.</p>${link(venue.source_url, 'Check the source ↗')}${venue.website && venue.website !== venue.source_url ? link(venue.website, 'Restaurant website ↗') : ''}${venue.notes ? `<details><summary>Source notes</summary><p>${esc(venue.notes)}</p></details>` : ''}${venue.location ? `<small>Map pin: ${esc(venue.location.precision)} · ${esc(venue.location.source)}. See directions for the entrance.</small>` : ''}</div>`;
-    $('#special-dialog').showModal();
+    const dialog = $('#special-dialog');
+    if (!dialog.open) {
+      releasePageScroll = lockPageScroll();
+      try { dialog.showModal(); }
+      catch (error) { releasePageScroll(); releasePageScroll = null; throw error; }
+    }
+  }
+
+  function closeDetail(restorePosition = true) {
+    releasePageScroll?.(restorePosition);
+    releasePageScroll = null;
+    $('#special-dialog').close();
   }
 
   function onClick(event) {
     const button = event.target.closest('button');
     if (!button) return;
-    if ('specialClose' in button.dataset) { $('#special-dialog').close(); return; }
+    if ('specialClose' in button.dataset) { closeDetail(); return; }
     if ('specialDetail' in button.dataset) { const venue = byId(button.dataset.specialDetail); if (venue) detail(venue); return; }
     if ('specialSave' in button.dataset) {
       const id = button.dataset.specialSave;
@@ -220,6 +278,7 @@ export function createSpecials(root) {
     }
     if ('specialFit' in button.dataset) { selectedId = ''; highlight(); map?.closePopup(); fitMap(); return; }
     if ('specialLocate' in button.dataset) { locateMe(); return; }
+    if ('specialFullscreen' in button.dataset) { toggleFullscreen(); return; }
     if ('specialMapRetry' in button.dataset) { drawMap(results()); return; }
     if ('specialMapPage' in button.dataset) {
       const direction = button.id;
@@ -253,6 +312,10 @@ export function createSpecials(root) {
   }
   return {
     show() { visible = true; if (!mounted) mount(); if (!data) load(); else draw(); },
-    hide() { visible = false; mapRequest++; mapList?.suspend(); if (mounted && $('#special-dialog').open) $('#special-dialog').close(); },
+    hide() {
+      visible = false; mapRequest++; mapList?.suspend();
+      if (mounted && $('#special-dialog').open) closeDetail(false);
+      if (mounted && $('#special-map-fullscreen').open) closeFullscreen(false);
+    },
   };
 }
