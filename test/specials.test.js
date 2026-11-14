@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { daysFromText, happyHourDays, chicagoWeekday, dailySpecialOnDay, filterSpecials, directionsUrl, safeUrl } from '../public/specials-model.js';
 
 const data = JSON.parse(await readFile(new URL('../public/specials-data/plano-happy-hours.json', import.meta.url), 'utf8'));
-test('expanded guide retains all 170 venues with distinct IDs and the supplied coordinates across six cities', () => {
-  assert.equal(data.venues.length, 170);
+test('expanded guide retains all 179 venues with distinct IDs and the supplied coordinates across six cities', () => {
+  assert.equal(data.venues.length, 179);
   assert.equal(data.venue_count, data.venues.length);
   assert.equal(new Set(data.venues.map((v) => v.id)).size, data.venues.length);
   assert.deepEqual([...new Set(data.venues.map((v) => v.city))].sort(), ['Addison', 'Allen', 'Dallas', 'Frisco', 'Plano', 'Richardson']);

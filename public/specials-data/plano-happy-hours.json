@@ -1,6 +1,6 @@
 {
   "generated_date": "2026-11-14",
-  "venue_count": 170,
+  "venue_count": 179,
   "venues": [
     {
       "name": "Alexander's Mex Cuisine",
@@ -686,6 +686,45 @@
       }
     },
     {
+      "address": "3625 Central Expy Ste 100, Plano, TX 75023",
+      "category": "Sports bar / American restaurant",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Tuesday",
+          "special": "Buy 1 order of traditional wings at regular price, get a 2nd of equal or lesser value 50% off (takeout/delivery via BWW Web/App and dine-in; 3rd-party delivery excluded; limit 1; size exclusions apply)"
+        },
+        {
+          "day": "Thursday",
+          "special": "Buy 1 order of boneless wings at regular price, get 1 of equal or lesser value FREE (takeout/delivery via BWW Web/App and dine-in; 3rd-party delivery excluded; limit 1; size exclusions apply)"
+        }
+      ],
+      "happy_hour": {
+        "days": "Monday-Friday",
+        "deals": [
+          "$3-$6 food and drinks",
+          "Strawberry Margarita $6",
+          "Wild Herd Kolsch by Goose Island $4"
+        ],
+        "time": "3:00-6:00 PM"
+      },
+      "latitude": 33.046308,
+      "longitude": -96.700673,
+      "name": "Buffalo Wild Wings",
+      "notes": "Happy hour is Mon-Fri only, dine-in only, at participating locations; offer may vary by location. Only the $3-6 range, $6 Strawberry Margarita and $4 Wild Herd Kolsch could be extracted from the official happy-hour page itself; other commonly listed items appear only in third-party roundups and were NOT included. BOGO terms from official BOGO page (buffalowildwings.com/bogo-days/).",
+      "phone": "(469) 467-9464",
+      "source_url": "https://www.buffalowildwings.com/happy-hour",
+      "website": "https://www.buffalowildwings.com/",
+      "id": "buffalo-wild-wings",
+      "location": {
+        "lat": 33.046308,
+        "lng": -96.700673,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "3625 Central Expy Ste 100, Plano, TX 75023"
+      }
+    },
+    {
       "address": "6007 Legacy Dr, Ste 180, Plano, TX 75024",
       "category": "Spanish Tapas",
       "daily_specials": [],
@@ -1105,6 +1144,49 @@
         "source": "Provided guide",
         "precision": "Provided coordinates",
         "matched_address": "2615 Preston Rd, Frisco, TX 75034"
+      }
+    },
+    {
+      "address": "3013 W Spring Creek Pkwy #200, Plano, TX 75023",
+      "category": "Halal Chinese Restaurant",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Monday",
+          "special": "Lunch Specials, 11:30 AM - 4:00 PM (halal Chinese lunch specials; no price listed on site)"
+        },
+        {
+          "day": "Tuesday",
+          "special": "Lunch Specials, 11:30 AM - 4:00 PM (halal Chinese lunch specials; no price listed on site)"
+        },
+        {
+          "day": "Wednesday",
+          "special": "Lunch Specials, 11:30 AM - 4:00 PM (halal Chinese lunch specials; no price listed on site)"
+        },
+        {
+          "day": "Thursday",
+          "special": "Lunch Specials, 11:30 AM - 4:00 PM (halal Chinese lunch specials; no price listed on site)"
+        },
+        {
+          "day": "Friday",
+          "special": "Lunch Specials, 11:30 AM - 4:00 PM (halal Chinese lunch specials; no price listed on site)"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.058316,
+      "longitude": -96.751569,
+      "name": "Crescent Moon",
+      "notes": "Homepage headline: 'Best Halal Lunch Specials, Mon-Fri, 11:30 AM - 4:00 PM'. Site also lists 'Special Offers' at $14.99/person and discounted dishes, but no day/time ties those to a specific special, so they are not structured as daily specials. No happy hour published; lunch-special price not stated on site.",
+      "phone": "(972) 618-7888",
+      "source_url": "https://crescentmoonplano.com/",
+      "website": "https://crescentmoonplano.com/",
+      "id": "crescent-moon",
+      "location": {
+        "lat": 33.058316,
+        "lng": -96.751569,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "3013 W Spring Creek Pkwy #200, Plano, TX 75023"
       }
     },
     {
@@ -1561,6 +1643,45 @@
         "source": "Provided guide",
         "precision": "Provided coordinates",
         "matched_address": "5004 Addison Cir, Addison, TX 75001"
+      }
+    },
+    {
+      "address": "3949 Legacy Dr, Plano, TX 75024",
+      "category": "Pizza Place",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Tuesday",
+          "special": "Weekday Lunch Specials until 2pm: Deal 1 $10.89 — 1 cheese slice, house salad & fountain drink; Deal 2 $8.99 — 2 cheese slices & fountain drink; Deal 3 $14.50 — spaghetti & meatball with house salad (while supplies last)"
+        },
+        {
+          "day": "Wednesday",
+          "special": "Weekday Lunch Specials until 2pm: Deal 1 $10.89 — 1 cheese slice, house salad & fountain drink; Deal 2 $8.99 — 2 cheese slices & fountain drink; Deal 3 $14.50 — spaghetti & meatball with house salad (while supplies last)"
+        },
+        {
+          "day": "Thursday",
+          "special": "Weekday Lunch Specials until 2pm: Deal 1 $10.89 — 1 cheese slice, house salad & fountain drink; Deal 2 $8.99 — 2 cheese slices & fountain drink; Deal 3 $14.50 — spaghetti & meatball with house salad (while supplies last)"
+        },
+        {
+          "day": "Friday",
+          "special": "Weekday Lunch Specials until 2pm: Deal 1 $10.89 — 1 cheese slice, house salad & fountain drink; Deal 2 $8.99 — 2 cheese slices & fountain drink; Deal 3 $14.50 — spaghetti & meatball with house salad (while supplies last)"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.073672,
+      "longitude": -96.771129,
+      "name": "Ferrari's Pizzeria",
+      "notes": "Official 'Specials, Promos, Merchandise' page, headed 'Weekday Lunch Specials — Tuesday – Friday til 2pm'. Restaurant is closed Mondays; BYOB.",
+      "phone": "(972) 491-2777",
+      "source_url": "https://ferrarispizzeria.com/specials-promos/",
+      "website": "http://ferrarispizzeria.com/",
+      "id": "ferrari-s-pizzeria",
+      "location": {
+        "lat": 33.073672,
+        "lng": -96.771129,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "3949 Legacy Dr, Plano, TX 75024"
       }
     },
     {
@@ -2287,6 +2408,45 @@
       }
     },
     {
+      "address": "3949 Legacy Dr Ste 104, Plano, TX 75024",
+      "category": "Thai Restaurant",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Daily",
+          "special": "Specials (standing menu section, no day/time stated): lemongrass marinated pork with steamed white rice, cucumbers, carrots, veggie roll and sweet & sour sauce — $13.99"
+        },
+        {
+          "day": "Daily",
+          "special": "Specials: lemongrass marinated pork with vermicelli noodles, cucumbers, pickled carrots, veggie roll and sweet & sour sauce — $14.99"
+        },
+        {
+          "day": "Daily",
+          "special": "Specials: traditional Lao catfish with herbs and spices wrapped and steamed in banana leaf, served with white rice — $14.99"
+        },
+        {
+          "day": "Daily",
+          "special": "Combo Specials: any soup, salad, fried rice, noodle, curry or stir-fry dish as a combo — $16.99"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.073728,
+      "longitude": -96.771236,
+      "name": "Kin-D Lao & Thai Food - Plano",
+      "notes": "Borderline entry: the restaurant's official Toast ordering page (linked from kin-d.us) has sections headed 'SPECIALS' and 'COMBO SPECIALS' with the prices above, but no day or time limit is stated — these are standing specials, not day-specific deals.",
+      "phone": "(214) 299-9832",
+      "source_url": "https://order.toasttab.com/online/kindplano?diningOption=takeout",
+      "website": "https://kin-d.us/",
+      "id": "kin-d-lao-thai-food-plano",
+      "location": {
+        "lat": 33.073728,
+        "lng": -96.771236,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "3949 Legacy Dr Ste 104, Plano, TX 75024"
+      }
+    },
+    {
       "address": "6121 W Park Blvd, Suite RS9, Plano, TX 75093",
       "category": "Steakhouse",
       "daily_specials": [],
@@ -2351,6 +2511,33 @@
         "source": "Provided guide",
         "precision": "Provided coordinates",
         "matched_address": "8687 N Central Expy Ste 1722, Dallas, TX 75225"
+      }
+    },
+    {
+      "address": "901 W Parker Rd Ste 147, Plano, TX 75023",
+      "category": "Taco restaurant / Mexican",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Tuesday",
+          "special": "Taco Tuesday: all tacos $2 each, all day (select specialty meats excluded)"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.042146,
+      "longitude": -96.713221,
+      "name": "La Bamba Tacos",
+      "notes": "WEAK SOURCE — FLAG: the official website publishes no specials. The $2 Taco Tuesday is from the restaurant's own dated social posts (Nov 4, 2025 and Feb 3, 2026) as reproduced on StuffedFace, an aggregator; the post text could not be extracted from the official Instagram profile itself (@labambatacos, confirmed active). Re-verify before visiting.",
+      "phone": "(469) 929-8484",
+      "source_url": "https://www.stuffedface.com/US/Plano/109503878489027/La-Bamba-Tacos",
+      "website": "https://labambatacos.com/",
+      "id": "la-bamba-tacos",
+      "location": {
+        "lat": 33.042146,
+        "lng": -96.713221,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "901 W Parker Rd Ste 147, Plano, TX 75023"
       }
     },
     {
@@ -3947,6 +4134,53 @@
       }
     },
     {
+      "address": "910 W Parker Rd #101, Plano, TX 75023",
+      "category": "American diner",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Monday",
+          "special": "Meatloaf Blue Plate Special $12.99 (choose 3 sides; includes cornbread, spicy jalapeno cornbread, roll, or Texas toast)"
+        },
+        {
+          "day": "Tuesday",
+          "special": "Pot Roast Blue Plate Special (price not separately listed; Sunday Pot Roast is $13.99)"
+        },
+        {
+          "day": "Wednesday",
+          "special": "Turkey and Dressing Blue Plate Special $12.99"
+        },
+        {
+          "day": "Thursday",
+          "special": "Chicken and Dumplings Blue Plate Special $11.99"
+        },
+        {
+          "day": "Friday",
+          "special": "Fish Fry Blue Plate Special $14.99"
+        },
+        {
+          "day": "Sunday",
+          "special": "Pot Roast Blue Plate Special $13.99"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.04067,
+      "longitude": -96.715058,
+      "name": "Red Truck Cafe",
+      "notes": "Day-to-dish rotation corroborated by the restaurant's own lunch-menu PDF (Mon Meatloaf, Tue Pot Roast, Wed Turkey & Dressing, Thu Chicken & Dumplings, Fri Fish Fry, Sun Pot Roast) — but that PDF's prices are from 2019 ($9.49) and stale. Prices above are current Allmenus listings (third-party), NOT from the official site, which publishes no menu/prices. Re-verify prices before visiting. Note: redtruckcafe.com lists the ZIP as 75075; place data says 75023.",
+      "phone": "(972) 996-5177",
+      "source_url": "https://www.allmenus.com/tx/plano/722067-red-truck-cafe/menu/",
+      "website": "http://redtruckcafe.com/",
+      "id": "red-truck-cafe",
+      "location": {
+        "lat": 33.04067,
+        "lng": -96.715058,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "910 W Parker Rd #101, Plano, TX 75023"
+      }
+    },
+    {
       "name": "Renny's Bar & Grill",
       "address": "11661 Preston Rd #153, Dallas, TX 75230",
       "city": "Dallas",
@@ -4009,6 +4243,45 @@
         "source": "Provided guide",
         "precision": "Provided coordinates",
         "matched_address": "641 Powell Ln, Plano, TX 75075"
+      }
+    },
+    {
+      "address": "1301 Custer Rd Ste 328, Plano, TX 75075",
+      "category": "Thai restaurant",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Monday",
+          "special": "Lunch Special $14.95, 11:00 AM-3:00 PM"
+        },
+        {
+          "day": "Tuesday",
+          "special": "Lunch Special $14.95, 11:00 AM-3:00 PM"
+        },
+        {
+          "day": "Thursday",
+          "special": "Lunch Special $14.95, 11:00 AM-3:00 PM"
+        },
+        {
+          "day": "Friday",
+          "special": "Lunch Special $14.95, 11:00 AM-3:00 PM"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.018852,
+      "longitude": -96.735595,
+      "name": "Ruang Thai Restaurant",
+      "notes": "PRICE CONFLICT on official site: the dedicated Specials page says $14.95, but the homepage says Lunch Special $13.95 for the same Mon/Tue/Thu/Fri 11AM-3PM window. Specials-page price used; verify by phone. Closed Wednesdays; BYOB.",
+      "phone": "(972) 422-4143",
+      "source_url": "https://ruangthai.com/Specials.html",
+      "website": "http://ruangthai.com/",
+      "id": "ruang-thai-restaurant",
+      "location": {
+        "lat": 33.018852,
+        "lng": -96.735595,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "1301 Custer Rd Ste 328, Plano, TX 75075"
       }
     },
     {
@@ -4259,6 +4532,61 @@
         "source": "Provided guide",
         "precision": "Provided coordinates",
         "matched_address": "8451 Parkwood Blvd, Plano, TX 75024"
+      }
+    },
+    {
+      "address": "109 Legacy Dr Ste 170, Plano, TX 75024",
+      "category": "Sichuan Restaurant",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Daily",
+          "special": "Daily Special: Shredded Cabbage (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Crispy Fish Maw (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Spicy Duck in Mala Broth (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Hot Pot Style Whole Fish (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Best Soup Dumplings (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Blackfish Fillet (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Frog with Preserved Chili (no price published)"
+        },
+        {
+          "day": "Daily",
+          "special": "Daily Special: Stir-Fried Egg with Tomatoes (no price published)"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.067413,
+      "longitude": -96.691647,
+      "name": "Sichuan Folk",
+      "notes": "Borderline entry: official homepage has a section headed 'Try Our Daily Specials' listing the eight dishes above, but publishes no days, times, or prices for them — dish names only.",
+      "phone": "(469) 863-7215",
+      "source_url": "https://www.sichuanfolk-plano.com/",
+      "website": "https://www.sichuanfolk-plano.com/",
+      "id": "sichuan-folk",
+      "location": {
+        "lat": 33.067413,
+        "lng": -96.691647,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "109 Legacy Dr Ste 170, Plano, TX 75024"
       }
     },
     {
@@ -5838,6 +6166,57 @@
       }
     },
     {
+      "address": "5700 Legacy Dr A5, Plano, TX 75024",
+      "category": "Bar & Grill",
+      "city": "Plano",
+      "daily_specials": [
+        {
+          "day": "Monday",
+          "special": "Martini Monday — $5 cocktails"
+        },
+        {
+          "day": "Tuesday",
+          "special": "Texas Tuesday — $1 off all draft beer"
+        },
+        {
+          "day": "Wednesday",
+          "special": "Wine Wednesday — 1/2 price wine bottles"
+        },
+        {
+          "day": "Thursday",
+          "special": "Thirsty Thursday — $5 frozen cocktails"
+        },
+        {
+          "day": "Friday",
+          "special": "Margarita Friday — $3.95 VillageRitas"
+        },
+        {
+          "day": "Saturday",
+          "special": "Sangria Saturday — $5 glass / $15 bottle sangria"
+        },
+        {
+          "day": "Sunday",
+          "special": "Sunday Funday — $5 mimosas & Bloody Marys"
+        }
+      ],
+      "happy_hour": null,
+      "latitude": 33.077514,
+      "longitude": -96.819428,
+      "name": "Village Burger Bar",
+      "notes": "Homepage section headed 'Daily Drink Specials'; no time window stated for any day, so recorded as daily specials, not happy hour. Also listed on homepage: '$4 Wells — All Day Everyday'. Caveat: specials appear on the chain-wide homepage (footer showed the West Village Dallas address), not on a Plano-specific page — confirm they apply at the Plano/Shops at Legacy location.",
+      "phone": "(972) 801-2772",
+      "source_url": "https://www.villageburgerbar.com/",
+      "website": "https://www.villageburgerbar.com/",
+      "id": "village-burger-bar",
+      "location": {
+        "lat": 33.077514,
+        "lng": -96.819428,
+        "source": "Provided guide",
+        "precision": "Provided coordinates",
+        "matched_address": "5700 Legacy Dr A5, Plano, TX 75024"
+      }
+    },
+    {
       "name": "Wabi House",
       "address": "3675 Gaylord Pkwy, Frisco, TX 75034",
       "city": "Frisco",
@@ -5964,7 +6343,7 @@
       }
     }
   ],
-  "venues_with_happy_hour": 161,
+  "venues_with_happy_hour": 162,
   "area": "Plano, TX and surrounding cities",
   "cities": [
     "Addison",
